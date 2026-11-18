@@ -3,7 +3,8 @@ import { parseArgs } from 'node:util';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { collect } from '../src/collector.js';
+import { createInterface } from 'node:readline/promises';
+import { collect, EnterpriseUnavailableError } from '../src/collector.js';
 import { resolveToken } from '../src/github-client.js';
 import { assess, loadRubric, DEFAULT_RUBRIC_PATH } from '../src/engine.js';
 import { render } from '../src/report.js';
@@ -16,7 +17,7 @@ const HELP = `gh-waf-assess — assess a GitHub Enterprise against the GitHub We
 
 Usage:
   gh-waf-assess run      --enterprise <slug> [collect options] [serve options]
-  gh-waf-assess collect  --enterprise <slug> [--orgs a,b] [--api-url URL] [--sample 25] [--max-repos 1000] [--out evidence.json]
+  gh-waf-assess collect  --enterprise <slug> [--orgs a,b] [--use-token-orgs] [--api-url URL] [--sample 25] [--max-repos 1000] [--out evidence.json]
   gh-waf-assess assess   --evidence evidence.json [--answers answers.json] [--format md|json|html] [--out FILE] [--fail-under N]
   gh-waf-assess serve    --evidence evidence.json [--answers answers.json] [--port 4173]
   gh-waf-assess serve    --demo
@@ -25,6 +26,8 @@ Usage:
 Options:
   --enterprise   Enterprise slug (enables enterprise-level checks and org discovery)
   --orgs         Comma-separated organizations to assess (default: all orgs in the enterprise)
+  --use-token-orgs  If the enterprise is not available to the token, assess organizations visible to the
+                 token instead of stopping (interactive sessions are prompted)
   --api-url      REST API base URL (default https://api.github.com; GHES: https://HOST/api/v3)
   --sample       Active repositories per org to deep-inspect for CODEOWNERS/workflows (default 25)
   --max-repos    Maximum repositories inventoried per org (default 1000)
@@ -43,6 +46,7 @@ Authentication: uses GH_TOKEN, GITHUB_TOKEN, or \`gh auth token\`. All API calls
 const options = {
   enterprise: { type: 'string' },
   orgs: { type: 'string' },
+  'use-token-orgs': { type: 'boolean', default: false },
   'api-url': { type: 'string', default: process.env.GITHUB_API_URL || 'https://api.github.com' },
   sample: { type: 'string', default: '25' },
   'max-repos': { type: 'string', default: '1000' },
@@ -73,20 +77,64 @@ const writeOut = (path, content) => {
   writeFileSync(path, content);
 };
 
+function enterpriseAccessHelp(slug, apiUrl) {
+  const host = apiUrl === 'https://api.github.com' ? 'github.com' : new URL(apiUrl).hostname.replace(/^api\./, '');
+  return `
+To assess the enterprise '${slug}', make sure the authenticated identity can read it:
+  1. Confirm the slug: open https://${host}/enterprises/${slug} (the slug is the last part of the URL).
+  2. Use an account that is an owner or member of the enterprise (\`gh auth status\` shows the active account;
+     switch with \`gh auth switch\` or \`gh auth login\`).
+  3. Grant enterprise scopes to the gh session:
+       gh auth refresh -h ${host} -s read:enterprise,read:org,read:audit_log
+     Or create a classic personal access token with read:enterprise, read:org, repo, security_events and
+     read:audit_log, then set GH_TOKEN. GH_TOKEN/GITHUB_TOKEN take precedence over \`gh auth token\`.
+  4. If the enterprise uses SAML SSO, authorize the token for SSO (Settings > Developer settings >
+     Personal access tokens > Configure SSO), or re-run \`gh auth login\` and complete SSO.
+  5. For GHE.com (data residency) or GitHub Enterprise Server, pass --api-url (for example
+     https://api.SUBDOMAIN.ghe.com or https://HOST/api/v3) and authenticate with \`gh auth login -h HOST\`.
+Then re-run the command. Alternatively, pass --orgs org-one,org-two to choose organizations explicitly,
+or --use-token-orgs to assess the organizations visible to the token.
+`;
+}
+
+async function confirm(question) {
+  if (!process.stdin.isTTY || !process.stderr.isTTY) return false;
+  const rl = createInterface({ input: process.stdin, output: process.stderr });
+  try {
+    return /^y(es)?$/i.test((await rl.question(question)).trim());
+  } finally {
+    rl.close();
+  }
+}
+
 async function runCollect(values) {
   const token = resolveToken();
   if (!token) fail('No GitHub token found. Set GH_TOKEN/GITHUB_TOKEN or run `gh auth login`.');
   const orgs = values.orgs ? values.orgs.split(',').map((s) => s.trim()).filter(Boolean) : null;
   if (!values.enterprise && !orgs) log('No --enterprise or --orgs given; assessing all organizations visible to the token.');
-  const evidence = await collect({
+  const opts = {
     token,
     apiUrl: values['api-url'],
     enterprise: values.enterprise,
     orgs,
+    tokenOrgFallback: values['use-token-orgs'],
     sampleSize: positiveInt(values.sample, 'sample'),
     maxRepos: positiveInt(values['max-repos'], 'max-repos'),
     log,
-  });
+  };
+  let evidence;
+  try {
+    evidence = await collect(opts);
+  } catch (err) {
+    if (!(err instanceof EnterpriseUnavailableError)) throw err;
+    log(`Error: ${err.message}`);
+    if (await confirm('Collect the organizations available to this token instead? [y/N] ')) {
+      evidence = await collect({ ...opts, tokenOrgFallback: true });
+    } else {
+      log(enterpriseAccessHelp(err.enterprise, values['api-url']));
+      process.exit(1);
+    }
+  }
   const out = values.out || 'evidence.json';
   writeOut(out, `${JSON.stringify(evidence, null, 2)}\n`);
   log(`Collected ${evidence.meta.organizations.length} organization(s) with ${evidence.meta.requestCount} API requests -> ${out}`);

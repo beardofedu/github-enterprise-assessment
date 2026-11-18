@@ -4,6 +4,8 @@ A local dashboard and CLI for identifying improvement opportunities in a GitHub 
 
 This is an independently defined rubric and maturity model, not an official GitHub certification or a comprehensive security audit. Results are indicators for human review, not proof of compliance.
 
+![Example assessment dashboard using fictional demo evidence](docs/images/assessment-dashboard.png)
+
 ## Requirements
 
 - Node.js 20 or later.
@@ -52,7 +54,7 @@ Use an identity with access to the enterprise and its organizations. Enterprise-
 
 Start with the least access appropriate for your assessment. Limited access, unsupported API fields, and failed requests become coverage gaps rather than failures. Review the dashboard's coverage gaps and the discovery warning before interpreting scores. A fine-grained token or GitHub App installation token may cover a subset of endpoints; GitHub App authentication is not implemented by this tool.
 
-By default the collector discovers organizations through the enterprise API. If discovery fails, it falls back to organizations visible to the authenticated user, which may not match the enterprise. Use `--orgs org-one,org-two` to specify scope explicitly. Repository inventory is capped at 1,000 per organization and deep inspection samples 25 active repositories by default; adjust these with `--max-repos` and `--sample`. Samples and truncated inventories are not comprehensive.
+By default the collector discovers organizations through the enterprise API. If the enterprise is not available to the authenticated token (wrong slug, missing `read:enterprise` scope, not an enterprise member, or SSO not authorized), collection stops with an error. In an interactive terminal you are asked whether to collect the organizations visible to the token instead; otherwise the tool prints steps for granting enterprise access (for example `gh auth refresh -s read:enterprise,read:org`). Pass `--use-token-orgs` to fall back to token-visible organizations without prompting, which may not match the enterprise. Use `--orgs org-one,org-two` to specify scope explicitly. Repository inventory is capped at 1,000 per organization and deep inspection samples 25 active repositories by default; adjust these with `--max-repos` and `--sample`. Samples and truncated inventories are not comprehensive.
 
 For GitHub Enterprise Server, supply `--api-url https://HOST/api/v3` and authenticate with a token for that host. API availability differs by version, so some checks may be unavailable.
 
