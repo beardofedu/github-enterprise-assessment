@@ -6,3 +6,8 @@ node_modules/
 *.tmp
 snapshot.json
 attestations.json
+# Assessment outputs can contain sensitive enterprise configuration data
+evidence*.json
+answers*.json
+!examples/answers.example.json
+reports/

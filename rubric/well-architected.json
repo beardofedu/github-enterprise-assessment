@@ -1,0 +1,535 @@
+{
+  "id": "github-well-architected",
+  "version": "1.0.0",
+  "title": "GitHub Well-Architected enterprise rubric",
+  "source": "https://learn.github.com/well-architected",
+  "scoring": {
+    "statusScores": { "pass": 1, "partial": 0.5, "fail": 0 },
+    "answerScores": { "yes": 1, "partial": 0.5, "no": 0 },
+    "maturityLevels": [
+      { "min": 90, "level": 5, "name": "Optimized" },
+      { "min": 75, "level": 4, "name": "Managed" },
+      { "min": 60, "level": 3, "name": "Defined" },
+      { "min": 40, "level": 2, "name": "Developing" },
+      { "min": 0, "level": 1, "name": "Initial" }
+    ]
+  },
+  "pillars": [
+    {
+      "id": "governance",
+      "name": "Governance",
+      "summary": "Access control, auditability, accountability, and policies that keep the enterprise compliant without slowing teams down.",
+      "url": "https://learn.github.com/well-architected/library/governance/checklist/"
+    },
+    {
+      "id": "application-security",
+      "name": "Application Security",
+      "summary": "Shift-left security: secret scanning, dependency and code scanning, secure Actions, and a security-aware culture.",
+      "url": "https://learn.github.com/well-architected/library/application-security/checklist/"
+    },
+    {
+      "id": "architecture",
+      "name": "Architecture",
+      "summary": "Scalable, resilient, observable platform design including runners, repository hygiene, and disaster recovery.",
+      "url": "https://learn.github.com/well-architected/library/architecture/checklist/"
+    },
+    {
+      "id": "collaboration",
+      "name": "Collaboration",
+      "summary": "Transparent ownership, discoverable repositories, and InnerSource practices that let teams work together.",
+      "url": "https://learn.github.com/well-architected/library/collaboration/checklist/"
+    },
+    {
+      "id": "productivity",
+      "name": "Productivity",
+      "summary": "Automation, AI-assisted development, engineering metrics, and feedback loops that accelerate delivery.",
+      "url": "https://learn.github.com/well-architected/library/productivity/checklist/"
+    }
+  ],
+  "controls": [
+    {
+      "id": "GOV-01",
+      "pillar": "governance",
+      "area": "Control",
+      "title": "Enterprise identity provider (SAML/OIDC) is configured",
+      "type": "automated",
+      "weight": 3,
+      "description": "Centralized identity through SAML SSO or OIDC (Enterprise Managed Users) ties GitHub access to your corporate identity lifecycle.",
+      "remediation": "Configure SAML SSO at the enterprise level (or adopt Enterprise Managed Users with OIDC) and pair it with SCIM provisioning so joiners, movers, and leavers are handled automatically.",
+      "references": ["https://learn.github.com/well-architected/library/governance/recommendations/governance-administration-essentials/"]
+    },
+    {
+      "id": "GOV-02",
+      "pillar": "governance",
+      "area": "Control",
+      "title": "Two-factor authentication is required",
+      "type": "automated",
+      "weight": 3,
+      "description": "Requiring 2FA (or delegating it to an IdP) protects accounts from credential stuffing and phishing.",
+      "remediation": "Enable the enterprise policy that requires two-factor authentication for all organizations, or enforce MFA through your identity provider.",
+      "references": ["https://learn.github.com/well-architected/library/application-security/checklist/"]
+    },
+    {
+      "id": "GOV-03",
+      "pillar": "governance",
+      "area": "Auditability",
+      "title": "Audit log streaming is configured",
+      "type": "automated",
+      "weight": 3,
+      "description": "Streaming the audit log to a SIEM or storage endpoint gives you retention beyond GitHub's defaults and enables alerting on unusual activity.",
+      "remediation": "Configure enterprise audit log streaming to your SIEM (Splunk, Azure Event Hubs, Datadog, S3, etc.) and build alerts for high-risk events.",
+      "references": ["https://learn.github.com/well-architected/library/governance/checklist/"]
+    },
+    {
+      "id": "GOV-04",
+      "pillar": "governance",
+      "area": "Control",
+      "title": "IP allow list is enabled",
+      "type": "automated",
+      "weight": 1,
+      "description": "Restricting access to known network ranges reduces the blast radius of leaked credentials.",
+      "remediation": "Enable the enterprise IP allow list (or your IdP's conditional access policy) for corporate network ranges and approved GitHub Apps.",
+      "references": ["https://learn.github.com/well-architected/library/application-security/checklist/"]
+    },
+    {
+      "id": "GOV-05",
+      "pillar": "governance",
+      "area": "Accountability",
+      "title": "Base repository permission follows least privilege",
+      "type": "automated",
+      "weight": 2,
+      "description": "Organization base permissions of 'none' or 'read' avoid granting every member write or admin access to every repository.",
+      "remediation": "Set the base repository permission to 'No permission' or 'Read' and grant elevated access through teams.",
+      "references": ["https://learn.github.com/well-architected/library/governance/recommendations/governance-policies-best-practices/"]
+    },
+    {
+      "id": "GOV-06",
+      "pillar": "governance",
+      "area": "Control",
+      "title": "Members cannot create public repositories",
+      "type": "automated",
+      "weight": 2,
+      "description": "Preventing members from creating public repositories avoids accidental exposure of proprietary code.",
+      "remediation": "Disable public repository creation for members at the enterprise or organization level and provide a reviewed process for open-source publishing.",
+      "references": ["https://learn.github.com/well-architected/library/governance/recommendations/governance-policies-best-practices/"]
+    },
+    {
+      "id": "GOV-07",
+      "pillar": "governance",
+      "area": "Auditability",
+      "title": "Organization rulesets protect default branches",
+      "type": "automated",
+      "weight": 3,
+      "description": "Active organization rulesets that require pull requests on default branches enforce code review consistently across repositories.",
+      "remediation": "Create an active organization ruleset targeting ~DEFAULT_BRANCH across all repositories that requires pull requests and approving reviews.",
+      "references": ["https://learn.github.com/well-architected/library/governance/checklist/"]
+    },
+    {
+      "id": "GOV-08",
+      "pillar": "governance",
+      "area": "Auditability",
+      "title": "Rulesets require status checks",
+      "type": "automated",
+      "weight": 2,
+      "description": "Required status checks ensure CI and compliance checks pass before code merges.",
+      "remediation": "Add a 'Require status checks to pass' rule (or required workflows) to your organization rulesets.",
+      "references": ["https://learn.github.com/well-architected/library/governance/checklist/"]
+    },
+    {
+      "id": "GOV-09",
+      "pillar": "governance",
+      "area": "Auditability",
+      "title": "Custom properties categorize repositories",
+      "type": "automated",
+      "weight": 2,
+      "description": "Custom properties (e.g. owner, data classification, compliance scope) allow targeted policies and reporting at scale.",
+      "remediation": "Define organization custom properties for ownership and classification and use them to target rulesets and security configurations.",
+      "references": ["https://learn.github.com/well-architected/library/governance/recommendations/managing-repositories-at-scale/"]
+    },
+    {
+      "id": "GOV-10",
+      "pillar": "governance",
+      "area": "Accountability",
+      "title": "Organization owner count is limited",
+      "type": "automated",
+      "weight": 2,
+      "description": "A small number of organization owners limits privileged access and makes accountability clear.",
+      "remediation": "Reduce organization owners to a small, named group and delegate day-to-day administration with custom organization roles.",
+      "references": ["https://learn.github.com/well-architected/library/governance/recommendations/governance-administration-essentials/"]
+    },
+    {
+      "id": "GOV-11",
+      "pillar": "governance",
+      "area": "Control",
+      "title": "Periodic access reviews are performed",
+      "type": "manual",
+      "weight": 2,
+      "question": "Do you run periodic (e.g. quarterly) reviews of enterprise owners, organization owners, outside collaborators, and team membership, and remediate findings?",
+      "remediation": "Schedule recurring access reviews using audit log and membership exports; document and remediate discrepancies.",
+      "references": ["https://learn.github.com/well-architected/library/governance/checklist/"]
+    },
+    {
+      "id": "GOV-12",
+      "pillar": "governance",
+      "area": "Adaptability",
+      "title": "Governance policies are documented and reviewed",
+      "type": "manual",
+      "weight": 2,
+      "question": "Are your GitHub governance policies (roles, repository standards, enterprise settings) documented, owned, and reviewed with stakeholders on a regular cadence?",
+      "remediation": "Publish a governance policy with named owners, a review cadence, and a feedback channel for developers.",
+      "references": ["https://learn.github.com/well-architected/library/governance/recommendations/governance-policies-best-practices/"]
+    },
+    {
+      "id": "GOV-13",
+      "pillar": "governance",
+      "area": "Control",
+      "title": "Backup and recovery procedures are tested",
+      "type": "manual",
+      "weight": 2,
+      "question": "Do you back up critical repositories and configuration (or GHES appliances) and regularly test restoration?",
+      "remediation": "Implement backups (GitHub Enterprise Server Backup Utilities or repository mirroring for GHEC) and run restore drills.",
+      "references": ["https://learn.github.com/well-architected/library/architecture/recommendations/building-resilience-with-repository-mirroring/"]
+    },
+    {
+      "id": "GOV-14",
+      "pillar": "governance",
+      "area": "Accountability",
+      "title": "Incident response covers GitHub access and policy violations",
+      "type": "manual",
+      "weight": 2,
+      "question": "Is there a documented, tested incident response procedure for compromised GitHub accounts, leaked tokens, or policy violations?",
+      "remediation": "Document runbooks for credential revocation, audit log investigation, and communication; test them through tabletop exercises.",
+      "references": ["https://learn.github.com/well-architected/library/governance/checklist/"]
+    },
+    {
+      "id": "GOV-15",
+      "pillar": "governance",
+      "area": "Control",
+      "title": "AI agents and Copilot usage are governed",
+      "type": "manual",
+      "weight": 2,
+      "question": "Do you have defined policies for Copilot features, coding agents, MCP servers, and AI credit budgets, with owners who review them?",
+      "remediation": "Define enterprise Copilot and agent policies, budgets, and an approval process for new AI capabilities.",
+      "references": ["https://learn.github.com/well-architected/library/governance/recommendations/governing-agents/"]
+    },
+    {
+      "id": "SEC-01",
+      "pillar": "application-security",
+      "area": "Security",
+      "title": "Secret scanning is enabled across repositories",
+      "type": "automated",
+      "weight": 3,
+      "description": "Secret scanning detects credentials committed to repositories.",
+      "remediation": "Apply a code security configuration that enables secret scanning for all repositories.",
+      "references": ["https://learn.github.com/well-architected/library/application-security/recommendations/enforce-ghas-at-scale/"]
+    },
+    {
+      "id": "SEC-02",
+      "pillar": "application-security",
+      "area": "Security",
+      "title": "Secret scanning push protection is enabled",
+      "type": "automated",
+      "weight": 3,
+      "description": "Push protection blocks secrets before they reach the repository.",
+      "remediation": "Enable push protection in your code security configuration and define a bypass review process.",
+      "references": ["https://learn.github.com/well-architected/library/application-security/recommendations/enforce-ghas-at-scale/"]
+    },
+    {
+      "id": "SEC-03",
+      "pillar": "application-security",
+      "area": "Proactivity",
+      "title": "Dependabot security updates are enabled",
+      "type": "automated",
+      "weight": 2,
+      "description": "Automated security updates open pull requests to fix vulnerable dependencies.",
+      "remediation": "Enable Dependabot alerts and security updates through a code security configuration.",
+      "references": ["https://learn.github.com/well-architected/library/application-security/recommendations/managing-dependency-threats/"]
+    },
+    {
+      "id": "SEC-04",
+      "pillar": "application-security",
+      "area": "Security",
+      "title": "Code scanning default setup is part of the security configuration",
+      "type": "automated",
+      "weight": 3,
+      "description": "Code scanning finds vulnerabilities in first-party code during development.",
+      "remediation": "Enable code scanning default setup in an organization code security configuration and apply it to all repositories.",
+      "references": ["https://learn.github.com/well-architected/library/application-security/recommendations/enforce-ghas-at-scale/"]
+    },
+    {
+      "id": "SEC-05",
+      "pillar": "application-security",
+      "area": "Security",
+      "title": "A default code security configuration applies to new repositories",
+      "type": "automated",
+      "weight": 2,
+      "description": "Default configurations ensure new repositories are secure by default.",
+      "remediation": "Mark a code security configuration as the default for new repositories in every organization.",
+      "references": ["https://learn.github.com/well-architected/library/application-security/recommendations/enforce-ghas-at-scale/"]
+    },
+    {
+      "id": "SEC-06",
+      "pillar": "application-security",
+      "area": "Proactivity",
+      "title": "Critical and high Dependabot alert backlog is managed",
+      "type": "automated",
+      "weight": 2,
+      "description": "A growing backlog of open critical/high alerts signals vulnerability management is not keeping pace.",
+      "remediation": "Prioritize alerts using EPSS/severity, auto-triage rules, and security campaigns; set remediation SLAs.",
+      "references": ["https://learn.github.com/well-architected/library/application-security/recommendations/prioritizing-alerts/"]
+    },
+    {
+      "id": "SEC-07",
+      "pillar": "application-security",
+      "area": "Proactivity",
+      "title": "Open secret scanning alerts are remediated",
+      "type": "automated",
+      "weight": 3,
+      "description": "Open secret scanning alerts may represent live credentials.",
+      "remediation": "Revoke and rotate exposed secrets, then close alerts; track time-to-remediate.",
+      "references": ["https://learn.github.com/well-architected/library/application-security/recommendations/prioritizing-alerts/"]
+    },
+    {
+      "id": "SEC-08",
+      "pillar": "application-security",
+      "area": "Security",
+      "title": "GitHub Actions usage is restricted to approved actions",
+      "type": "automated",
+      "weight": 2,
+      "description": "Allowing any marketplace action exposes workflows to supply-chain risk.",
+      "remediation": "Restrict allowed actions to GitHub-authored, verified creators, and an explicit allow list; pin actions to full SHAs.",
+      "references": ["https://learn.github.com/well-architected/library/application-security/recommendations/actions-security/"]
+    },
+    {
+      "id": "SEC-09",
+      "pillar": "application-security",
+      "area": "Security",
+      "title": "Default GITHUB_TOKEN permissions are read-only",
+      "type": "automated",
+      "weight": 2,
+      "description": "Read-only default workflow permissions limit the impact of compromised workflows.",
+      "remediation": "Set default workflow permissions to read-only and prevent Actions from approving pull requests.",
+      "references": ["https://learn.github.com/well-architected/library/application-security/recommendations/actions-security/"]
+    },
+    {
+      "id": "SEC-10",
+      "pillar": "application-security",
+      "area": "Awareness",
+      "title": "A security policy (SECURITY.md) is published",
+      "type": "automated",
+      "weight": 1,
+      "description": "A default SECURITY.md in the organization's .github repository tells people how to report vulnerabilities.",
+      "remediation": "Add SECURITY.md to each organization's .github repository so it applies to all repositories by default.",
+      "references": ["https://learn.github.com/well-architected/library/application-security/checklist/"]
+    },
+    {
+      "id": "SEC-11",
+      "pillar": "application-security",
+      "area": "Proactivity",
+      "title": "Threat modeling is practiced",
+      "type": "manual",
+      "weight": 2,
+      "question": "Do teams perform threat modeling for critical applications and the software supply chain (including CI/CD)?",
+      "remediation": "Adopt a lightweight threat modeling process for new services and significant changes.",
+      "references": ["https://learn.github.com/well-architected/library/application-security/recommendations/threat-model/"]
+    },
+    {
+      "id": "SEC-12",
+      "pillar": "application-security",
+      "area": "Awareness",
+      "title": "Security champions and training program exists",
+      "type": "manual",
+      "weight": 2,
+      "question": "Is there a security champions network and recurring secure-coding training for developers?",
+      "remediation": "Establish security champions in each team and provide recurring secure-coding training tied to real alert data.",
+      "references": ["https://learn.github.com/well-architected/library/application-security/checklist/"]
+    },
+    {
+      "id": "SEC-13",
+      "pillar": "application-security",
+      "area": "Security",
+      "title": "Developer workspaces are secured",
+      "type": "manual",
+      "weight": 1,
+      "question": "Are developer environments (Codespaces, local machines, IDE extensions, tokens) governed with policies such as token expiration and approved extensions?",
+      "remediation": "Enforce fine-grained token policies, PAT expiration, and secure workspace baselines.",
+      "references": ["https://learn.github.com/well-architected/library/application-security/recommendations/securing-developer-workspace/"]
+    },
+    {
+      "id": "ARC-01",
+      "pillar": "architecture",
+      "area": "Scalability",
+      "title": "Self-hosted runners are isolated with runner groups",
+      "type": "automated",
+      "weight": 2,
+      "description": "Runner groups scoped to specific repositories and blocked from public repositories prevent untrusted code from running on internal infrastructure.",
+      "remediation": "Organize self-hosted runners into runner groups with selected-repository visibility and disallow public repositories; prefer ephemeral runners (e.g. ARC).",
+      "references": ["https://learn.github.com/well-architected/library/architecture/recommendations/deploying-actions-runner-controller/"]
+    },
+    {
+      "id": "ARC-02",
+      "pillar": "architecture",
+      "area": "Efficiency",
+      "title": "Inactive repositories are archived",
+      "type": "automated",
+      "weight": 1,
+      "description": "Stale, unarchived repositories add noise, cost, and security exposure.",
+      "remediation": "Archive repositories with no pushes in 12+ months after confirming with owners; automate the lifecycle with custom properties.",
+      "references": ["https://learn.github.com/well-architected/library/governance/recommendations/managing-repositories-at-scale/"]
+    },
+    {
+      "id": "ARC-03",
+      "pillar": "architecture",
+      "area": "Disaster Recovery",
+      "title": "Disaster recovery plan is documented and tested",
+      "type": "manual",
+      "weight": 2,
+      "question": "Do you have a documented disaster recovery plan for your GitHub platform and CI/CD (including RTO/RPO) that is tested at least annually?",
+      "remediation": "Define RTO/RPO for source control and CI/CD, document the plan, and test it on a schedule.",
+      "references": ["https://learn.github.com/well-architected/library/architecture/recommendations/designing-resilient-ci-cd/"]
+    },
+    {
+      "id": "ARC-04",
+      "pillar": "architecture",
+      "area": "Observability",
+      "title": "Platform monitoring and alerting is in place",
+      "type": "manual",
+      "weight": 2,
+      "question": "Do you monitor GitHub platform health (runner capacity, Actions queue times, API rate limits, GHES appliance metrics) with alerting?",
+      "remediation": "Collect platform metrics (runner queue time, job failures, rate limits) into your observability stack with alert thresholds.",
+      "references": ["https://learn.github.com/well-architected/library/architecture/checklist/"]
+    },
+    {
+      "id": "ARC-05",
+      "pillar": "architecture",
+      "area": "Resiliency",
+      "title": "CI/CD pipelines are designed for resilience",
+      "type": "manual",
+      "weight": 1,
+      "question": "Are CI/CD pipelines resilient to dependency outages (caching, mirrors, retries) and free of single points of failure?",
+      "remediation": "Add dependency caching/mirrors, retries, and redundant runner capacity to critical pipelines.",
+      "references": ["https://learn.github.com/well-architected/library/architecture/recommendations/designing-resilient-ci-cd/"]
+    },
+    {
+      "id": "ARC-06",
+      "pillar": "architecture",
+      "area": "Interoperability",
+      "title": "Hosted runners use private networking where required",
+      "type": "manual",
+      "weight": 1,
+      "question": "Where workflows need private resources, do you use GitHub-hosted runners with private networking (Azure VNET) or equivalent controlled connectivity?",
+      "remediation": "Adopt hosted runner private networking or well-scoped self-hosted runners instead of opening inbound firewall rules.",
+      "references": ["https://learn.github.com/well-architected/library/architecture/recommendations/hosted-runner-private-networking/"]
+    },
+    {
+      "id": "COL-01",
+      "pillar": "collaboration",
+      "area": "Transparency",
+      "title": "CODEOWNERS defines repository ownership",
+      "type": "automated",
+      "weight": 2,
+      "description": "CODEOWNERS files make ownership explicit and route reviews automatically.",
+      "remediation": "Add CODEOWNERS to active repositories and require code owner review in rulesets.",
+      "references": ["https://learn.github.com/well-architected/library/collaboration/checklist/"]
+    },
+    {
+      "id": "COL-02",
+      "pillar": "collaboration",
+      "area": "Openness",
+      "title": "Repositories are discoverable with descriptions",
+      "type": "automated",
+      "weight": 1,
+      "description": "Descriptions and topics make repositories discoverable for InnerSource reuse.",
+      "remediation": "Require descriptions (and topics or custom properties) for active repositories; report on gaps.",
+      "references": ["https://learn.github.com/well-architected/library/collaboration/checklist/"]
+    },
+    {
+      "id": "COL-03",
+      "pillar": "collaboration",
+      "area": "Inclusivity",
+      "title": "Default community health files are provided",
+      "type": "automated",
+      "weight": 1,
+      "description": "A .github repository with CONTRIBUTING guidance sets consistent expectations across repositories.",
+      "remediation": "Create a .github repository in each organization with CONTRIBUTING.md, issue templates, and a profile README.",
+      "references": ["https://learn.github.com/well-architected/library/collaboration/checklist/"]
+    },
+    {
+      "id": "COL-04",
+      "pillar": "collaboration",
+      "area": "Openness",
+      "title": "InnerSource and champion programs exist",
+      "type": "manual",
+      "weight": 2,
+      "question": "Do you run an InnerSource or GitHub champions program that encourages cross-team contribution and shares best practices?",
+      "remediation": "Launch a champions program with clear roles, regular syncs, and recognition.",
+      "references": ["https://learn.github.com/well-architected/library/collaboration/recommendations/champion-program/"]
+    },
+    {
+      "id": "COL-05",
+      "pillar": "collaboration",
+      "area": "Effective Communication",
+      "title": "Reusable workflows and shared assets are standardized",
+      "type": "manual",
+      "weight": 1,
+      "question": "Do teams share reusable workflows, templates, and actions from a central, versioned source?",
+      "remediation": "Publish reusable workflows and template repositories in a central location with versioning and ownership.",
+      "references": ["https://learn.github.com/well-architected/library/collaboration/recommendations/scaling-actions-reusability/"]
+    },
+    {
+      "id": "PRD-01",
+      "pillar": "productivity",
+      "area": "Automation",
+      "title": "GitHub Actions automation is adopted",
+      "type": "automated",
+      "weight": 2,
+      "description": "Repositories with CI workflows get faster, more consistent feedback.",
+      "remediation": "Provide starter workflows and reusable workflows so active repositories run CI on every pull request.",
+      "references": ["https://learn.github.com/well-architected/library/productivity/recommendations/effective-ci/"]
+    },
+    {
+      "id": "PRD-02",
+      "pillar": "productivity",
+      "area": "Integration",
+      "title": "GitHub Copilot seats are utilized",
+      "type": "automated",
+      "weight": 2,
+      "description": "Assigned Copilot seats that are active in the current billing cycle indicate healthy adoption.",
+      "remediation": "Run enablement for inactive seat holders, reclaim unused seats, and track adoption with Copilot metrics.",
+      "references": ["https://learn.github.com/well-architected/library/productivity/recommendations/adopting-copilot-at-scale/"]
+    },
+    {
+      "id": "PRD-03",
+      "pillar": "productivity",
+      "area": "Engineering System Success",
+      "title": "Balanced engineering metrics are established",
+      "type": "manual",
+      "weight": 2,
+      "question": "Do you track balanced engineering system metrics (e.g. DORA, SPACE, developer experience surveys) and act on them?",
+      "remediation": "Choose balanced metrics across quality, velocity, and developer happiness; review them regularly.",
+      "references": ["https://learn.github.com/well-architected/library/productivity/recommendations/engineering-system-metrics/"]
+    },
+    {
+      "id": "PRD-04",
+      "pillar": "productivity",
+      "area": "Feedback",
+      "title": "Developer feedback loop is closed",
+      "type": "manual",
+      "weight": 1,
+      "question": "Do you collect developer feedback on the platform and visibly act on it?",
+      "remediation": "Create feedback channels (surveys, discussions), publish outcomes, and integrate improvements into the platform roadmap.",
+      "references": ["https://learn.github.com/well-architected/library/productivity/checklist/"]
+    },
+    {
+      "id": "PRD-05",
+      "pillar": "productivity",
+      "area": "Continuous Learning",
+      "title": "Continuous learning opportunities are provided",
+      "type": "manual",
+      "weight": 1,
+      "question": "Do developers have structured learning paths for GitHub, Actions, security, and Copilot?",
+      "remediation": "Provide learning paths, office hours, and certifications for GitHub features.",
+      "references": ["https://learn.github.com/well-architected/library/productivity/checklist/"]
+    }
+  ]
+}
