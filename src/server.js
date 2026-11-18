@@ -4,6 +4,7 @@ import { assess, normalizeAnswer } from './engine.js';
 import { renderHtml, renderMarkdown } from './report.js';
 
 const TEMPLATE_URL = new URL('./web/index.html', import.meta.url);
+const PRIMER_CSS_URL = new URL('../node_modules/@primer/css/dist/primer.css', import.meta.url);
 const MAX_BODY = 64 * 1024;
 
 export function loadAnswers(path) {
@@ -48,6 +49,7 @@ export function createServer({ rubric, evidence, answersPath, port }) {
     const url = new URL(req.url, `http://${req.headers.host}`);
     try {
       if (req.method === 'GET' && url.pathname === '/') return send(res, 200, readFileSync(TEMPLATE_URL, 'utf8'), 'text/html; charset=utf-8');
+      if (req.method === 'GET' && url.pathname === '/primer.css') return send(res, 200, readFileSync(PRIMER_CSS_URL, 'utf8'), 'text/css; charset=utf-8');
       if (req.method === 'GET' && url.pathname === '/api/assessment') return send(res, 200, JSON.stringify(current()), 'application/json');
       if (req.method === 'GET' && url.pathname === '/api/report.md') return send(res, 200, renderMarkdown(current()), 'text/markdown; charset=utf-8');
       if (req.method === 'GET' && url.pathname === '/api/report.html') return send(res, 200, renderHtml(current()), 'text/html; charset=utf-8');

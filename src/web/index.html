@@ -1,98 +1,113 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-color-mode="auto" data-light-theme="light" data-dark-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GitHub Well-Architected Enterprise Assessment</title>
+<link rel="stylesheet" href="/primer.css">
 <style>
-  :root { --bg:#0d1117; --panel:#161b22; --border:#30363d; --fg:#e6edf3; --muted:#8b949e; --accent:#2f81f7;
-          --pass:#3fb950; --partial:#d29922; --fail:#f85149; --unknown:#8b949e; }
-  * { box-sizing: border-box; }
-  body { margin:0; font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; background:var(--bg); color:var(--fg); }
-  header { padding:24px 32px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:flex-end; gap:24px; flex-wrap:wrap; }
-  header h1 { margin:0; font-size:22px; } header p { margin:4px 0 0; color:var(--muted); }
-  main { padding:24px 32px; max-width:1400px; margin:0 auto; }
-  a { color:var(--accent); }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; }
-  .card { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:16px; }
-  .big { font-size:40px; font-weight:600; line-height:1; }
-  .muted { color:var(--muted); } .small { font-size:12px; }
-  .bar { height:8px; background:#21262d; border-radius:4px; overflow:hidden; margin:8px 0; }
-  .bar > span { display:block; height:100%; }
-  .pill { display:inline-block; padding:1px 8px; border-radius:12px; font-size:12px; font-weight:600; border:1px solid currentColor; white-space:nowrap; }
-  .s-pass{color:var(--pass)} .s-partial{color:var(--partial)} .s-fail{color:var(--fail)}
-  .s-unknown,.s-unanswered,.s-not_applicable{color:var(--unknown)}
-  .sev-High{color:var(--fail)} .sev-Medium{color:var(--partial)} .sev-Low{color:var(--muted)}
-  nav.tabs { display:flex; gap:4px; margin:24px 0 16px; border-bottom:1px solid var(--border); }
-  nav.tabs button { background:none; border:none; color:var(--muted); padding:8px 14px; cursor:pointer; font:inherit; border-bottom:2px solid transparent; }
-  nav.tabs button.active { color:var(--fg); border-bottom-color:#f78166; }
-  table { width:100%; border-collapse:collapse; } th,td { text-align:left; padding:10px 8px; border-bottom:1px solid var(--border); vertical-align:top; }
-  th { color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; }
-  .filters { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
-  select, input, textarea, button.btn { background:#0d1117; color:var(--fg); border:1px solid var(--border); border-radius:6px; padding:6px 10px; font:inherit; }
-  button.btn { cursor:pointer; background:#21262d; } button.btn.primary { background:#238636; border-color:#2ea043; }
-  .q { padding:14px 0; border-bottom:1px solid var(--border); }
-  .q .opts { display:flex; gap:12px; margin:8px 0; flex-wrap:wrap; }
-  .q textarea { width:100%; min-height:38px; }
-  .hidden { display:none; }
-  .remediation { margin-top:6px; } details summary { cursor:pointer; color:var(--muted); }
-  #toast { position:fixed; bottom:20px; right:20px; background:#238636; padding:8px 14px; border-radius:6px; display:none; }
+  body { margin: 0; color: var(--fgColor-default); background: var(--bgColor-default); }
+  .Header { background: var(--bgColor-default); border-bottom: 1px solid var(--borderColor-default); }
+  .header-content { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .skip-link { position: absolute; z-index: 2; top: .5rem; left: .5rem; transform: translateY(-200%); }
+  .skip-link:focus { transform: translateY(0); }
+  .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 1rem; }
+  .score { font-size: 2rem; font-weight: 600; line-height: 1.2; }
+  .ScoreProgress { display: block; width: 100%; margin: .5rem 0; }
+  .UnderlineNav { overflow-x: auto; }
+  .UnderlineNav-item { white-space: nowrap; }
+  .table-wrap { max-width: 100%; overflow-x: auto; }
+  table { width: 100%; min-width: 720px; border-collapse: collapse; }
+  th, td { padding: .625rem .5rem; text-align: left; vertical-align: top; border-bottom: 1px solid var(--borderColor-muted); }
+  th { color: var(--fgColor-muted); font-size: .75rem; text-transform: uppercase; }
+  .filters { display: flex; align-items: end; gap: .75rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .filter-control { display: grid; gap: .25rem; }
+  .q { border-bottom: 1px solid var(--borderColor-muted); padding: 1rem 0; }
+  .q-options { border: 0; margin: .5rem 0; padding: 0; }
+  .q-options legend { margin-bottom: .25rem; }
+  .q-options label { display: inline-flex; align-items: center; gap: .25rem; margin-right: .75rem; }
+  .q textarea { min-height: 4rem; width: min(100%, 48rem); }
+  .remediation { margin-top: .375rem; }
+  details summary { cursor: pointer; color: var(--fgColor-muted); }
+  :focus-visible { outline: 2px solid var(--focus-outlineColor); outline-offset: 2px; }
+  #toast, #save-error, #load-error { position: fixed; z-index: 10; right: 1rem; bottom: 1rem; max-width: calc(100vw - 2rem); }
+  #save-error, #load-error { bottom: 4rem; }
+  [hidden] { display: none !important; }
+  @media (max-width: 40rem) {
+    .header-content { align-items: flex-start; }
+    .filters { align-items: stretch; flex-direction: column; }
+  }
+  @media (forced-colors: active) {
+    .Label { border: 1px solid currentColor; }
+  }
 </style>
 </head>
 <body>
-<header>
-  <div>
-    <h1>GitHub Well-Architected Enterprise Assessment</h1>
-    <p id="subtitle">Loading…</p>
+<a class="skip-link btn btn-primary" href="#main-content">Skip to content</a>
+<header class="Header">
+  <div class="container-xl px-3 py-3 header-content">
+    <div>
+      <h1 class="h2 m-0">GitHub Well-Architected Enterprise Assessment</h1>
+      <p class="color-fg-muted m-0" id="subtitle">Loading assessment…</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2" id="actions"></div>
   </div>
-  <div id="actions"></div>
 </header>
-<main>
-  <section class="grid" id="summary"></section>
-  <nav class="tabs">
-    <button data-tab="improvements" class="active">Improvement areas</button>
-    <button data-tab="controls">All controls</button>
-    <button data-tab="questionnaire">Questionnaire</button>
-    <button data-tab="gaps">Coverage gaps</button>
+<main class="container-xl px-3 py-4" id="main-content">
+  <section class="summary-grid mb-4" id="summary" aria-label="Assessment summary"></section>
+  <nav class="UnderlineNav mb-3" aria-label="Assessment views">
+    <div class="UnderlineNav-body" role="tablist" aria-label="Assessment sections">
+      <button type="button" class="UnderlineNav-item selected" id="tab-button-improvements" role="tab" aria-selected="true" aria-controls="tab-improvements" tabindex="0" data-tab="improvements">Improvement areas</button>
+      <button type="button" class="UnderlineNav-item" id="tab-button-controls" role="tab" aria-selected="false" aria-controls="tab-controls" tabindex="-1" data-tab="controls">All controls</button>
+      <button type="button" class="UnderlineNav-item" id="tab-button-questionnaire" role="tab" aria-selected="false" aria-controls="tab-questionnaire" tabindex="-1" data-tab="questionnaire">Questionnaire</button>
+      <button type="button" class="UnderlineNav-item" id="tab-button-gaps" role="tab" aria-selected="false" aria-controls="tab-gaps" tabindex="-1" data-tab="gaps">Coverage gaps</button>
+    </div>
   </nav>
-  <section id="tab-improvements"></section>
-  <section id="tab-controls" class="hidden"></section>
-  <section id="tab-questionnaire" class="hidden"></section>
-  <section id="tab-gaps" class="hidden"></section>
+  <section id="tab-improvements" role="tabpanel" aria-labelledby="tab-button-improvements" tabindex="0"></section>
+  <section id="tab-controls" role="tabpanel" aria-labelledby="tab-button-controls" tabindex="0" hidden></section>
+  <section id="tab-questionnaire" role="tabpanel" aria-labelledby="tab-button-questionnaire" tabindex="0" hidden></section>
+  <section id="tab-gaps" role="tabpanel" aria-labelledby="tab-button-gaps" tabindex="0" hidden></section>
 </main>
-<div id="toast">Saved</div>
+<div id="toast" class="flash flash-success" role="status" aria-live="polite" aria-atomic="true" hidden></div>
+<div id="save-error" class="flash flash-error" role="alert" hidden></div>
+<div id="load-error" class="flash flash-error" role="alert" hidden></div>
 <script>
 const STATIC = window.__ASSESSMENT__ || null;
 let data = STATIC;
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-const colorFor = (score) => score == null ? 'var(--unknown)' : score >= 75 ? 'var(--pass)' : score >= 50 ? 'var(--partial)' : 'var(--fail)';
-const pill = (status) => `<span class="pill s-${esc(status)}">${esc(status.replace('_', ' '))}</span>`;
+const pill = (status) => {
+  const styles = { pass: 'Label--success', partial: 'Label--attention', fail: 'Label--danger' };
+  return `<span class="Label ${styles[status] || 'Label--secondary'}">${esc(status.replace('_', ' '))}</span>`;
+};
 const pillarName = (id) => data.pillars.find((p) => p.id === id)?.name || id;
-const refs = (list) => (list || []).map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener">Well-Architected guidance</a>`).join(' · ');
+const refs = (list) => (list || []).map((u) => `<a href="${esc(u)}" rel="noopener">Well-Architected guidance</a>`).join(' · ');
+const scoreProgress = (label, score) => score == null ? '<p class="color-fg-muted">Score not available</p>'
+  : `<progress class="ScoreProgress" max="100" value="${score}" aria-label="${esc(label)} score: ${score} percent"></progress>`;
 
 function renderSummary() {
   const m = data.meta, o = data.overall;
   const scope = [m.enterprise ? `Enterprise: ${m.enterprise}` : null, `${m.organizations.length} organization(s)`, m.evidenceGeneratedAt ? `Evidence: ${new Date(m.evidenceGeneratedAt).toLocaleString()}` : null].filter(Boolean).join(' · ');
   document.getElementById('subtitle').textContent = scope;
-  const cards = [`<div class="card"><div class="muted small">Overall score</div><div class="big" style="color:${colorFor(o.score)}">${o.score ?? '—'}</div>
-    <div>${o.maturity ? `Level ${o.maturity.level}: ${esc(o.maturity.name)}` : 'Not enough data'}</div>
-    <div class="muted small">${o.assessedControls}/${o.applicableControls} controls assessed (${o.coverage}% coverage)</div></div>`];
+  const cards = [`<article class="Box p-3"><h2 class="h5 mt-0">Overall score</h2><div class="score">${o.score ?? '—'}</div>
+    ${scoreProgress('Overall', o.score)}
+    <p class="mb-1">${o.maturity ? `Level ${o.maturity.level}: ${esc(o.maturity.name)}` : 'Not enough data'}</p>
+    <p class="color-fg-muted text-small mb-0">${o.assessedControls}/${o.applicableControls} controls assessed (${o.coverage}% coverage)</p></article>`];
   for (const p of data.pillars) {
-    cards.push(`<div class="card"><div style="display:flex;justify-content:space-between"><strong><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.name)}</a></strong><span style="color:${colorFor(p.score)};font-weight:600">${p.score ?? '—'}</span></div>
-      <div class="bar"><span style="width:${p.score ?? 0}%;background:${colorFor(p.score)}"></span></div>
-      <div class="small">${p.maturity ? esc(p.maturity.name) : 'Not assessed'} · ${p.coverage}% coverage</div>
-      <div class="small muted">${['pass','partial','fail','unknown','unanswered'].filter((s) => p.counts[s]).map((s) => `${p.counts[s]} ${s}`).join(' · ')}</div></div>`);
+    cards.push(`<article class="Box p-3"><div class="d-flex flex-justify-between flex-items-center"><h2 class="h5 m-0"><a href="${esc(p.url)}">${esc(p.name)}</a></h2><span class="score">${p.score ?? '—'}</span></div>
+      ${scoreProgress(p.name, p.score)}
+      <p class="text-small mb-1">${p.maturity ? esc(p.maturity.name) : 'Not assessed'} · ${p.coverage}% coverage</p>
+      <p class="text-small color-fg-muted mb-0">${['pass','partial','fail','unknown','unanswered'].filter((s) => p.counts[s]).map((s) => `${p.counts[s]} ${s.replace('_', ' ')}`).join(' · ') || 'No assessed controls'}</p></article>`);
   }
   document.getElementById('summary').innerHTML = cards.join('');
 }
 
 function renderImprovements() {
   const el = document.getElementById('tab-improvements');
-  if (!data.improvements.length) { el.innerHTML = '<p class="muted">No improvement areas identified among assessed controls.</p>'; return; }
-  el.innerHTML = `<p class="muted">Ranked by priority (control weight × gap). Address High severity failures first.</p><table><thead><tr><th>#</th><th>Control</th><th>Pillar</th><th>Status</th><th>Severity</th><th>Finding &amp; recommendation</th></tr></thead><tbody>${
-    data.improvements.map((c, i) => `<tr><td>${i + 1}</td><td><strong>${esc(c.id)}</strong><br>${esc(c.title)}</td><td>${esc(pillarName(c.pillar))}<br><span class="muted small">${esc(c.area)}</span></td><td>${pill(c.status)}</td><td><span class="sev-${esc(c.severity)}">${esc(c.severity)}</span></td>
-      <td>${esc(c.finding)}<div class="remediation"><strong>Recommendation:</strong> ${esc(c.remediation)}</div><div class="small">${refs(c.references)}</div></td></tr>`).join('')
-  }</tbody></table>`;
+  if (!data.improvements.length) { el.innerHTML = '<h2 class="h3">Improvement areas</h2><p class="color-fg-muted">No improvement areas identified among assessed controls.</p>'; return; }
+  el.innerHTML = `<h2 class="h3">Improvement areas</h2><p class="color-fg-muted">Ranked by priority (control weight × gap). Address High severity failures first.</p><div class="table-wrap" role="region" aria-label="Improvement areas table" tabindex="0"><table><thead><tr><th scope="col">#</th><th scope="col">Control</th><th scope="col">Pillar</th><th scope="col">Status</th><th scope="col">Severity</th><th scope="col">Finding &amp; recommendation</th></tr></thead><tbody>${
+    data.improvements.map((c, i) => `<tr><td>${i + 1}</td><td><strong>${esc(c.id)}</strong><br>${esc(c.title)}</td><td>${esc(pillarName(c.pillar))}<br><span class="color-fg-muted text-small">${esc(c.area)}</span></td><td>${pill(c.status)}</td><td><span class="Label ${c.severity === 'High' ? 'Label--danger' : c.severity === 'Medium' ? 'Label--attention' : 'Label--secondary'}">${esc(c.severity)}</span></td>
+      <td>${esc(c.finding)}<div class="remediation"><strong>Recommendation:</strong> ${esc(c.remediation)}</div><div class="text-small">${refs(c.references)}</div></td></tr>`).join('')
+  }</tbody></table></div>`;
 }
 
 function renderControls() {
@@ -100,31 +115,38 @@ function renderControls() {
   const pf = el.querySelector('#f-pillar')?.value || '', sf = el.querySelector('#f-status')?.value || '';
   const rows = data.controls.filter((c) => (!pf || c.pillar === pf) && (!sf || c.status === sf));
   const statuses = [...new Set(data.controls.map((c) => c.status))];
-  el.innerHTML = `<div class="filters"><select id="f-pillar"><option value="">All pillars</option>${data.pillars.map((p) => `<option value="${p.id}" ${p.id === pf ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>
-    <select id="f-status"><option value="">All statuses</option>${statuses.map((s) => `<option ${s === sf ? 'selected' : ''}>${s}</option>`).join('')}</select>
-    <span class="muted" style="align-self:center">${rows.length} controls</span></div>
-    <table><thead><tr><th>Control</th><th>Pillar / area</th><th>Type</th><th>Weight</th><th>Status</th><th>Finding</th></tr></thead><tbody>${
-    rows.map((c) => `<tr><td><strong>${esc(c.id)}</strong><br>${esc(c.title)}</td><td>${esc(pillarName(c.pillar))}<br><span class="muted small">${esc(c.area)}</span></td><td>${esc(c.source)}</td><td>${c.weight}</td><td>${pill(c.status)}</td>
-      <td>${esc(c.finding)}${c.notes ? `<div class="small muted">Notes: ${esc(c.notes)}</div>` : ''}<details><summary>Recommendation</summary>${esc(c.remediation)}<div class="small">${refs(c.references)}</div></details></td></tr>`).join('')
-  }</tbody></table>`;
-  el.querySelector('#f-pillar').onchange = renderControls;
-  el.querySelector('#f-status').onchange = renderControls;
+  el.innerHTML = `<h2 class="h3">All controls</h2><div class="filters">
+    <label class="filter-control" for="f-pillar">Pillar<select class="FormControl-select" id="f-pillar"><option value="">All pillars</option>${data.pillars.map((p) => `<option value="${p.id}" ${p.id === pf ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></label>
+    <label class="filter-control" for="f-status">Status<select class="FormControl-select" id="f-status"><option value="">All statuses</option>${statuses.map((s) => `<option value="${esc(s)}" ${s === sf ? 'selected' : ''}>${esc(s.replace('_', ' '))}</option>`).join('')}</select></label>
+    <span class="color-fg-muted" id="control-count" role="status" aria-live="polite">${rows.length} controls</span></div>
+    <div class="table-wrap" role="region" aria-label="Controls table" tabindex="0"><table><thead><tr><th scope="col">Control</th><th scope="col">Pillar / area</th><th scope="col">Type</th><th scope="col">Weight</th><th scope="col">Status</th><th scope="col">Finding</th></tr></thead><tbody>${
+    rows.map((c) => `<tr><td><strong>${esc(c.id)}</strong><br>${esc(c.title)}</td><td>${esc(pillarName(c.pillar))}<br><span class="color-fg-muted text-small">${esc(c.area)}</span></td><td>${esc(c.source)}</td><td>${c.weight}</td><td>${pill(c.status)}</td>
+      <td>${esc(c.finding)}${c.notes ? `<div class="text-small color-fg-muted">Notes: ${esc(c.notes)}</div>` : ''}<details><summary>Recommendation</summary>${esc(c.remediation)}<div class="text-small">${refs(c.references)}</div></details></td></tr>`).join('')
+  }</tbody></table></div>`;
+  for (const id of ['f-pillar', 'f-status']) {
+    el.querySelector(`#${id}`).addEventListener('change', () => {
+      renderControls();
+      el.querySelector(`#${id}`).focus();
+    });
+  }
 }
 
 function renderQuestionnaire() {
   const el = document.getElementById('tab-questionnaire');
   const qs = data.controls.filter((c) => c.type === 'manual' || c.status === 'unknown' || c.source === 'manual-override');
-  const intro = STATIC ? '<p class="muted">Static report — run <code>gh-waf-assess serve</code> to answer questions interactively.</p>'
-    : '<p class="muted">Answer process and practice questions that the API cannot observe. Unknown automated controls can also be answered manually. Answers are saved locally to your answers file.</p>';
-  el.innerHTML = intro + data.pillars.map((p) => {
+  const intro = STATIC ? '<p class="color-fg-muted">Static report — run <code>gh-waf-assess serve</code> to answer questions interactively.</p>'
+    : '<p class="color-fg-muted">Answer process and practice questions that the API cannot observe. Unknown automated controls can also be answered manually. Answers are saved locally to your answers file.</p>';
+  el.innerHTML = '<h2 class="h3">Questionnaire</h2>' + intro + data.pillars.map((p) => {
     const items = qs.filter((c) => c.pillar === p.id);
     if (!items.length) return '';
     return `<h3>${esc(p.name)}</h3>` + items.map((c) => {
       const current = c.source === 'automated' && c.status === 'unknown' ? '' : ({ pass: 'yes', partial: 'partial', fail: 'no', not_applicable: 'na' }[c.status] || '');
       const question = c.question || `${c.title}? (Automated check could not run: ${c.automatedFinding || c.finding})`;
-      return `<div class="q" data-id="${esc(c.id)}"><strong>${esc(c.id)}</strong> ${pill(c.status)} — ${esc(question)}
-        <div class="opts">${['yes','partial','no','na'].map((a) => `<label><input type="radio" name="a-${esc(c.id)}" value="${a}" ${current === a ? 'checked' : ''} ${STATIC ? 'disabled' : ''}> ${a === 'na' ? 'Not applicable' : a[0].toUpperCase() + a.slice(1)}</label>`).join('')}</div>
-        <textarea placeholder="Notes / evidence (optional)" ${STATIC ? 'disabled' : ''}>${esc(c.notes)}</textarea></div>`;
+      const questionId = `question-${esc(c.id)}`;
+      const noteId = `notes-${esc(c.id)}`;
+      return `<article class="q" data-id="${esc(c.id)}"><p id="${questionId}" class="mb-2"><strong>${esc(c.id)}</strong> ${pill(c.status)} — ${esc(question)}</p>
+        <fieldset class="q-options"><legend class="sr-only">${esc(c.id)} assessment response</legend><div>${['yes','partial','no','na'].map((a) => `<label><input class="FormControl-radio" type="radio" name="a-${esc(c.id)}" value="${a}" aria-describedby="${questionId}" ${current === a ? 'checked' : ''} ${STATIC ? 'disabled' : ''}> ${a === 'na' ? 'Not applicable' : a[0].toUpperCase() + a.slice(1)}</label>`).join('')}</div></fieldset>
+        <label for="${noteId}">Notes / evidence (optional)</label><textarea class="FormControl-input d-block mt-1" id="${noteId}" aria-describedby="${questionId}" ${STATIC ? 'disabled' : ''}>${esc(c.notes)}</textarea></article>`;
     }).join('');
   }).join('');
   if (STATIC) return;
@@ -132,38 +154,78 @@ function renderQuestionnaire() {
     const save = async () => {
       const answer = q.querySelector('input:checked')?.value;
       if (!answer) return;
-      const res = await fetch('/api/answers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: q.dataset.id, answer, notes: q.querySelector('textarea').value }) });
-      if (!res.ok) { alert('Failed to save answer'); return; }
-      data = await res.json();
-      renderSummary(); renderImprovements(); renderControls(); renderGaps();
-      const t = document.getElementById('toast'); t.style.display = 'block'; setTimeout(() => (t.style.display = 'none'), 1200);
+      const toast = document.getElementById('toast');
+      const error = document.getElementById('save-error');
+      try {
+        const res = await fetch('/api/answers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: q.dataset.id, answer, notes: q.querySelector('textarea').value }) });
+        if (!res.ok) throw new Error('Answer could not be saved.');
+        data = await res.json();
+        renderSummary(); renderImprovements(); renderControls(); renderGaps();
+        error.hidden = true;
+        toast.textContent = 'Answer saved locally.';
+        toast.hidden = false;
+        setTimeout(() => { toast.hidden = true; }, 3500);
+      } catch {
+        error.textContent = 'Unable to save this answer. Check the local server connection and try again.';
+        error.hidden = false;
+      }
     };
-    q.querySelectorAll('input').forEach((i) => (i.onchange = save));
-    q.querySelector('textarea').onblur = save;
+    q.querySelectorAll('input').forEach((i) => i.addEventListener('change', save));
+    q.querySelector('textarea').addEventListener('blur', save);
   });
 }
 
 function renderGaps() {
   const el = document.getElementById('tab-gaps');
-  if (!data.coverageGaps.length) { el.innerHTML = '<p class="muted">Every applicable control has been assessed.</p>'; return; }
-  el.innerHTML = `<p class="muted">These controls are excluded from scores until evidence is available. Grant the token more scopes, re-run collection, or answer them in the questionnaire.</p>
-    <table><thead><tr><th>Control</th><th>Pillar</th><th>Status</th><th>Reason</th></tr></thead><tbody>${
-    data.coverageGaps.map((g) => `<tr><td><strong>${esc(g.id)}</strong><br>${esc(g.title)}</td><td>${esc(pillarName(g.pillar))}</td><td>${pill(g.status)}</td><td>${esc(g.finding)}</td></tr>`).join('')}</tbody></table>`;
+  if (!data.coverageGaps.length) { el.innerHTML = '<h2 class="h3">Coverage gaps</h2><p class="color-fg-muted">Every applicable control has been assessed.</p>'; return; }
+  el.innerHTML = `<h2 class="h3">Coverage gaps</h2><p class="color-fg-muted">These controls are excluded from scores until evidence is available. Grant the token more scopes, re-run collection, or answer them in the questionnaire.</p>
+    <div class="table-wrap" role="region" aria-label="Coverage gaps table" tabindex="0"><table><thead><tr><th scope="col">Control</th><th scope="col">Pillar</th><th scope="col">Status</th><th scope="col">Reason</th></tr></thead><tbody>${
+    data.coverageGaps.map((g) => `<tr><td><strong>${esc(g.id)}</strong><br>${esc(g.title)}</td><td>${esc(pillarName(g.pillar))}</td><td>${pill(g.status)}</td><td>${esc(g.finding)}</td></tr>`).join('')}</tbody></table></div>`;
 }
 
 function renderActions() {
-  document.getElementById('actions').innerHTML = STATIC ? `<span class="muted small">Generated ${new Date(data.meta.assessedAt).toLocaleString()}</span>`
+  document.getElementById('actions').innerHTML = STATIC ? `<span class="color-fg-muted text-small">Generated ${new Date(data.meta.assessedAt).toLocaleString()}</span>`
     : `<a class="btn" href="/api/report.md" download="assessment.md">Download Markdown</a> <a class="btn" href="/api/report.html" download="assessment.html">Download HTML</a> <a class="btn" href="/api/assessment" download="assessment.json">Download JSON</a>`;
 }
 
-document.querySelectorAll('nav.tabs button').forEach((b) => (b.onclick = () => {
-  document.querySelectorAll('nav.tabs button').forEach((x) => x.classList.toggle('active', x === b));
-  document.querySelectorAll('main > section[id^=tab-]').forEach((s) => s.classList.toggle('hidden', s.id !== `tab-${b.dataset.tab}`));
-}));
+const tabButtons = [...document.querySelectorAll('[role="tab"]')];
+function activateTab(button, moveFocus = false) {
+  for (const tab of tabButtons) {
+    const selected = tab === button;
+    tab.setAttribute('aria-selected', String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+    tab.classList.toggle('selected', selected);
+    document.getElementById(tab.getAttribute('aria-controls')).hidden = !selected;
+  }
+  if (moveFocus) button.focus();
+}
+for (const button of tabButtons) {
+  button.addEventListener('click', () => activateTab(button));
+  button.addEventListener('keydown', (event) => {
+    const index = tabButtons.indexOf(button);
+    const next = event.key === 'ArrowRight' ? (index + 1) % tabButtons.length
+      : event.key === 'ArrowLeft' ? (index - 1 + tabButtons.length) % tabButtons.length
+        : event.key === 'Home' ? 0 : event.key === 'End' ? tabButtons.length - 1 : -1;
+    if (next >= 0) {
+      event.preventDefault();
+      activateTab(tabButtons[next], true);
+    }
+  });
+}
 
 (async () => {
-  if (!data) data = await (await fetch('/api/assessment')).json();
-  renderActions(); renderSummary(); renderImprovements(); renderControls(); renderQuestionnaire(); renderGaps();
+  try {
+    if (!data) {
+      const response = await fetch('/api/assessment');
+      if (!response.ok) throw new Error('Assessment could not be loaded.');
+      data = await response.json();
+    }
+    renderActions(); renderSummary(); renderImprovements(); renderControls(); renderQuestionnaire(); renderGaps();
+  } catch {
+    const error = document.getElementById('load-error');
+    error.textContent = 'Unable to load the assessment. Check the local server and refresh the page.';
+    error.hidden = false;
+  }
 })();
 </script>
 </body>

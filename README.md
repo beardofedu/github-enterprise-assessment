@@ -7,9 +7,14 @@ This is an independently defined rubric and maturity model, not an official GitH
 ## Requirements
 
 - Node.js 20 or later.
+- npm, to install and serve the dashboard's local Primer CSS.
 - For live collection, a GitHub token or an authenticated [GitHub CLI](https://cli.github.com/) session. The app uses `GH_TOKEN`, then `GITHUB_TOKEN`, then `gh auth token`.
 
-No package installation is needed.
+Install the dependencies once:
+
+```sh
+npm ci
+```
 
 ## Try the demo
 
@@ -65,8 +70,15 @@ To customize controls or scoring, copy `rubric/well-architected.json` and pass `
 
 The dashboard binds to loopback and the collector only makes read-only GitHub API requests. Evidence, answers, and exported reports can contain sensitive enterprise configuration and assessor notes; keep them secure and do not commit them. Default output filenames are ignored by Git, but custom output paths may not be.
 
+## Primer and accessibility
+
+The dashboard uses locally served Primer CSS, Primer component styles and color tokens, semantic landmarks and headings, labeled form controls, visible keyboard focus, responsive layouts, and accessible status and tab interactions. Its accessibility test runs axe against the dashboard in light and dark themes, after saving a questionnaire answer, and at a narrow viewport; it also checks keyboard navigation. Automated checks are guardrails, not a substitute for human review with keyboard-only interaction, browser zoom, VoiceOver/Safari, and NVDA/Chrome.
+
 ## Development
 
 ```sh
 npm test
+npm run test:a11y
 ```
+
+The accessibility test requires Playwright's Chromium browser. If it is not installed yet, run `npx playwright install chromium`.

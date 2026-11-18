@@ -80,6 +80,10 @@ test('dashboard server persists answers and rejects foreign hosts and non-JSON p
   try {
     const page = await fetch(`${base}/`);
     assert.equal(page.status, 200);
+    const stylesheet = await fetch(`${base}/primer.css`);
+    assert.equal(stylesheet.status, 200);
+    assert.match(stylesheet.headers.get('content-type'), /text\/css/);
+    assert.match(await stylesheet.text(), /\.UnderlineNav/);
 
     const post = await fetch(`${base}/api/answers`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: 'GOV-11', answer: 'yes', notes: 'quarterly' }) });
     assert.equal(post.status, 200);
