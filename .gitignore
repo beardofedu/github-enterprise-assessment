@@ -1,8 +1,7 @@
-__pycache__/
-*.py[cod]
-node_modules/
-.env
-.venv/
+# Assessment outputs can contain sensitive enterprise configuration data
+evidence*.json
+answers*.json
+!examples/answers.example.json
+reports/
 *.tmp
-snapshot.json
-attestations.json
+node_modules/

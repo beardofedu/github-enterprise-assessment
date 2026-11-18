@@ -1,9 +1,17 @@
 {
   "name": "github-enterprise-assessment",
+  "version": "0.1.0",
+  "description": "Local-first GitHub Enterprise assessment aligned to the GitHub Well-Architected Framework",
+  "type": "module",
   "private": true,
-  "description": "Locally served Primer CSS and accessibility test dependencies.",
+  "bin": {
+    "gh-waf-assess": "bin/gh-waf-assess.js"
+  },
   "scripts": {
-    "test:a11y": "node tests/accessibility.mjs"
+    "test": "node --test",
+    "test:a11y": "node tests/accessibility.mjs",
+    "demo": "node bin/gh-waf-assess.js serve --demo",
+    "start": "node bin/gh-waf-assess.js"
   },
   "dependencies": {
     "@primer/css": "^21.0.0"
@@ -11,5 +19,8 @@
   "devDependencies": {
     "axe-core": "^4.10.3",
     "playwright": "^1.55.0"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
