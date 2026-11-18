@@ -1,0 +1,6 @@
+{
+  "GOV-11": { "answer": "partial", "notes": "Org owners reviewed annually; outside collaborators not yet reviewed." },
+  "GOV-12": "yes",
+  "ARC-03": { "answer": "no", "notes": "No documented DR plan for CI/CD." },
+  "PRD-03": "partial"
+}
