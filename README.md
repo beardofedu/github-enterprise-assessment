@@ -35,6 +35,10 @@ node bin/gh-waf-assess.js run --enterprise YOUR_ENTERPRISE_SLUG
 
 The command collects evidence into `evidence.json`, starts a dashboard on `http://127.0.0.1:4173`, and saves answers to `answers.json`. Complete the questionnaire to assess controls that cannot be determined from the API.
 
+Existing answers in `answers.json` are loaded automatically when the dashboard starts. Use `--answers path/to/answers.json` with `run` or `serve` to load and continue saving to another file.
+
+You can also select **Load answers.json** in the dashboard to start from a saved answers file. Imports update matching answers and notes, keep other answers and collected evidence, and save to the dashboard's configured answers file. Files must be JSON objects keyed by control ID (not exported assessment reports), no larger than 64 KiB. Each value may be `"yes"`, `"partial"`, `"no"`, or `"na"`, or an object such as `{ "answer": "partial", "notes": "Review in progress" }`; notes are limited to 4,000 characters. See [`examples/answers.example.json`](examples/answers.example.json). Invalid imports are rejected without changing existing answers.
+
 To collect and report separately:
 
 ```sh

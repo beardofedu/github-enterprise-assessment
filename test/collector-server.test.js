@@ -5,7 +5,7 @@ import { collect, EnterpriseUnavailableError } from '../src/collector.js';
 import { graphqlUrlFor } from '../src/github-client.js';
 import { createServer } from '../src/server.js';
 import { loadRubric } from '../src/engine.js';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -115,8 +115,79 @@ test('dashboard server persists answers and rejects foreign hosts and non-JSON p
         resolve(res.statusCode);
       }).on('error', reject);
     });
+
     assert.equal(rebindStatus, 403);
   } finally {
     real.close();
   }
+});
+
+test('dashboard imports answers atomically, preserves other answers, and reloads them on startup', async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'waf-import-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const answersPath = join(dir, 'answers.json');
+  writeFileSync(answersPath, JSON.stringify({ 'GOV-11': 'no', 'ARC-03': 'partial' }));
+  const rubric = loadRubric();
+  const start = async () => {
+    const probe = http.createServer();
+    await new Promise((resolve) => probe.listen(0, '127.0.0.1', resolve));
+    const { port } = probe.address();
+    await new Promise((resolve) => probe.close(resolve));
+    const server = createServer({ rubric, evidence: { orgs: {} }, answersPath, port });
+    await new Promise((resolve) => server.listen(port, '127.0.0.1', resolve));
+    t.after(() => new Promise((resolve) => server.close(resolve)));
+    return (path, body, type = 'application/json') => fetch(`http://127.0.0.1:${port}${path}`, {
+      headers: { 'Content-Type': type },
+      ...(body === undefined ? {} : { method: 'POST', body }),
+    });
+  };
+  const request = await start();
+  const initial = await (await request('/api/assessment')).json();
+  assert.equal(initial.controls.find((c) => c.id === 'GOV-11').status, 'fail');
+
+  const response = await request('/api/answers/import', JSON.stringify({
+    'GOV-11': { answer: 'yes', notes: 'Quarterly review' },
+    'GOV-12': 'na',
+    'GOV-03': 'partial',
+  }));
+  assert.equal(response.status, 200);
+  const assessment = await response.json();
+  assert.equal(assessment.controls.find((c) => c.id === 'GOV-11').status, 'pass');
+  assert.equal(assessment.controls.find((c) => c.id === 'GOV-11').notes, 'Quarterly review');
+  assert.equal(assessment.controls.find((c) => c.id === 'GOV-12').status, 'not_applicable');
+  assert.equal(assessment.controls.find((c) => c.id === 'GOV-03').source, 'manual-override');
+  assert.equal(assessment.controls.find((c) => c.id === 'ARC-03').status, 'partial');
+  const saved = readFileSync(answersPath, 'utf8');
+  assert.deepEqual(JSON.parse(saved)['GOV-11'], { answer: 'yes', notes: 'Quarterly review' });
+
+  for (const body of [
+    '{',
+    'null',
+    '[]',
+    '{}',
+    JSON.stringify({ 'GOV-11': 'no', 'INVALID': 'yes' }),
+    JSON.stringify({ 'GOV-11': 'maybe' }),
+    JSON.stringify({ 'GOV-11': null }),
+    JSON.stringify({ 'GOV-11': { answer: { toString: 'yes' } } }),
+    JSON.stringify({ 'GOV-11': { answer: 'yes', notes: {} } }),
+    JSON.stringify({ 'GOV-11': { answer: 'yes', notes: false } }),
+    JSON.stringify({ 'GOV-11': { answer: 'yes', notes: 'x'.repeat(4001) } }),
+    JSON.stringify({ controls: [] }),
+  ]) {
+    assert.equal((await request('/api/answers/import', body)).status, 400, body);
+    assert.equal(readFileSync(answersPath, 'utf8'), saved);
+  }
+  assert.equal((await request('/api/answers/import', '{}', 'text/plain')).status, 415);
+  const unchanged = await (await request('/api/assessment')).json();
+  assert.equal(unchanged.controls.find((c) => c.id === 'GOV-11').status, 'pass');
+  const restarted = await start();
+  const reloaded = await (await restarted('/api/assessment')).json();
+  assert.equal(reloaded.controls.find((c) => c.id === 'GOV-11').notes, 'Quarterly review');
+  assert.equal(reloaded.controls.find((c) => c.id === 'ARC-03').status, 'partial');
+
+  mkdirSync(`${answersPath}.tmp`);
+  assert.equal((await request('/api/answers/import', '{"GOV-11":"no"}')).status, 500);
+  assert.equal(readFileSync(answersPath, 'utf8'), saved);
+  const afterSaveError = await (await request('/api/assessment')).json();
+  assert.equal(afterSaveError.controls.find((c) => c.id === 'GOV-11').status, 'pass');
 });
