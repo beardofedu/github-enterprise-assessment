@@ -74,7 +74,7 @@ The dashboard binds to loopback and the collector only makes read-only GitHub AP
 
 ## Primer and accessibility
 
-The dashboard uses locally served Primer CSS, Primer component styles and color tokens, semantic landmarks and headings, labeled form controls, visible keyboard focus, responsive layouts, and accessible status and tab interactions. Its accessibility test runs axe against the dashboard in light and dark themes, after saving a questionnaire answer, and at a narrow viewport; it also checks keyboard navigation. Automated checks are guardrails, not a substitute for human review with keyboard-only interaction, browser zoom, VoiceOver/Safari, and NVDA/Chrome.
+The dashboard uses locally served Primer CSS, Primer component styles and color tokens, semantic landmarks and headings, labeled form controls, visible keyboard focus, responsive layouts, and accessible status and tab interactions. Its accessibility test checks Primer styling and header contrast in both themes, including offline HTML reports. It also runs axe after saving a questionnaire answer and at a narrow viewport, and checks keyboard navigation. Automated checks are guardrails, not a substitute for human review with keyboard-only interaction, browser zoom, VoiceOver/Safari, and NVDA/Chrome.
 
 ## Development
 

@@ -43,14 +43,42 @@ async function axe(page, label) {
   console.log(`${label}: no axe violations`);
 }
 
+function contrastRatio(foreground, background) {
+  const parse = (color) => {
+    const channels = color.match(/[\d.]+/g)?.map(Number);
+    if (!channels || channels.length < 3) throw new Error(`Unsupported computed color: ${color}`);
+    return channels;
+  };
+  const fg = parse(foreground);
+  const bg = parse(background);
+  if ((bg[3] ?? 1) !== 1) throw new Error(`Header background is not opaque: ${background}`);
+  const alpha = fg[3] ?? 1;
+  const luminance = (channels) => {
+    const [red, green, blue] = channels.map((channel) => {
+      const value = channel / 255;
+      return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  };
+  const fgLuminance = luminance(fg.slice(0, 3).map((channel, i) => channel * alpha + bg[i] * (1 - alpha)));
+  const bgLuminance = luminance(bg.slice(0, 3));
+  return (Math.max(fgLuminance, bgLuminance) + 0.05) / (Math.min(fgLuminance, bgLuminance) + 0.05);
+}
+
 async function assertPrimerStyles(page, label) {
   const styles = await page.evaluate(() => ({
     foreground: getComputedStyle(document.documentElement).getPropertyValue("--fgColor-default").trim(),
     background: getComputedStyle(document.documentElement).getPropertyValue("--bgColor-default").trim(),
     cardBorder: getComputedStyle(document.querySelector("#summary .Box")).borderTopStyle,
+    titleColor: getComputedStyle(document.querySelector(".Header h1")).color,
+    headerBackground: getComputedStyle(document.querySelector(".Header")).backgroundColor,
   }));
   if (!styles.foreground || !styles.background || styles.cardBorder !== "solid") {
     throw new Error(`${label}: Primer styles are not applied: ${JSON.stringify(styles)}`);
+  }
+  const titleContrast = contrastRatio(styles.titleColor, styles.headerBackground);
+  if (titleContrast < 4.5) {
+    throw new Error(`${label}: header title contrast is ${titleContrast.toFixed(2)}:1 (minimum 4.5:1)`);
   }
 }
 
