@@ -53,7 +53,7 @@ try {
   for (const colorScheme of ["light", "dark"]) {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, colorScheme });
     await page.goto(url);
-    await page.getByRole("heading", { name: "GitHub Well-Architected Enterprise Assessment" }).waitFor();
+    await page.locator("#tab-controls tbody tr").first().waitFor({ state: "attached" });
     await axe(page, `Desktop ${colorScheme}`);
 
     await page.getByRole("tab", { name: "Questionnaire" }).click();
@@ -68,6 +68,7 @@ try {
 
   const narrow = await browser.newPage({ viewport: { width: 390, height: 844 }, colorScheme: "light" });
   await narrow.goto(url);
+  await narrow.locator("#tab-controls tbody tr").first().waitFor({ state: "attached" });
   const width = await narrow.evaluate(() => ({
     viewport: document.documentElement.clientWidth,
     document: document.documentElement.scrollWidth,
