@@ -54,6 +54,34 @@ export function createServer({ rubric, evidence, answersPath, port }) {
       if (req.method === 'GET' && url.pathname === '/api/assessment') return send(res, 200, JSON.stringify(current()), 'application/json');
       if (req.method === 'GET' && url.pathname === '/api/report.md') return send(res, 200, renderMarkdown(current()), 'text/markdown; charset=utf-8');
       if (req.method === 'GET' && url.pathname === '/api/report.html') return send(res, 200, renderHtml(current(), primerCss), 'text/html; charset=utf-8');
+      if (req.method === 'POST' && url.pathname === '/api/answers/import') {
+        if (!String(req.headers['content-type']).startsWith('application/json')) return send(res, 415, 'Expected application/json', 'text/plain');
+        let body;
+        try {
+          body = JSON.parse(await readBody(req));
+        } catch (err) {
+          if (!(err instanceof SyntaxError)) throw err;
+          return send(res, 400, 'Invalid JSON answers file', 'text/plain');
+        }
+        if (!body || typeof body !== 'object' || Array.isArray(body) || !Object.keys(body).length) {
+          return send(res, 400, 'Expected a non-empty object keyed by control id', 'text/plain');
+        }
+        const imported = {};
+        for (const [id, raw] of Object.entries(body)) {
+          const control = rubric.controls.find((c) => c.id === id);
+          const validShape = typeof raw === 'string' || (raw && typeof raw === 'object' && !Array.isArray(raw)
+            && typeof raw.answer === 'string' && (raw.notes === undefined || typeof raw.notes === 'string'));
+          const normalized = validShape ? normalizeAnswer(raw) : null;
+          if (!control || !normalized || typeof normalized.notes !== 'string' || normalized.notes.length > 4000) {
+            return send(res, 400, `Invalid control, answer, or notes for ${id}`, 'text/plain');
+          }
+          imported[id] = normalized;
+        }
+        const next = { ...answers, ...imported };
+        if (answersPath) saveAnswers(answersPath, next);
+        answers = next;
+        return send(res, 200, JSON.stringify(current()), 'application/json');
+      }
       if (req.method === 'POST' && url.pathname === '/api/answers') {
         // Requiring a JSON content type forces a CORS preflight, so other sites cannot post answers.
         if (!String(req.headers['content-type']).startsWith('application/json')) return send(res, 415, 'Expected application/json', 'text/plain');

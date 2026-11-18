@@ -135,7 +135,7 @@ function renderQuestionnaire() {
   const el = document.getElementById('tab-questionnaire');
   const qs = data.controls.filter((c) => c.type === 'manual' || c.status === 'unknown' || c.source === 'manual-override');
   const intro = STATIC ? '<p class="color-fg-muted">Static report — run <code>gh-waf-assess serve</code> to answer questions interactively.</p>'
-    : '<p class="color-fg-muted">Answer process and practice questions that the API cannot observe. Unknown automated controls can also be answered manually. Answers are saved locally to your answers file.</p>';
+    : '<p class="color-fg-muted">Answer process and practice questions that the API cannot observe. Unknown automated controls can also be answered manually. Answers are saved locally to your answers file. To start from saved answers, use Load answers.json above. Imported entries replace matching answers and notes; other answers and collected evidence are kept.</p>';
   el.innerHTML = '<h2 class="h3">Questionnaire</h2>' + intro + data.pillars.map((p) => {
     const items = qs.filter((c) => c.pillar === p.id);
     if (!items.length) return '';
@@ -185,7 +185,40 @@ function renderGaps() {
 
 function renderActions() {
   document.getElementById('actions').innerHTML = STATIC ? `<span class="color-fg-muted text-small">Generated ${new Date(data.meta.assessedAt).toLocaleString()}</span>`
-    : `<a class="btn" href="/api/report.md" download="assessment.md">Download Markdown</a> <a class="btn" href="/api/report.html" download="assessment.html">Download HTML</a> <a class="btn" href="/api/assessment" download="assessment.json">Download JSON</a>`;
+    : `<a class="btn" href="/api/report.md" download="assessment.md">Download Markdown</a> <a class="btn" href="/api/report.html" download="assessment.html">Download HTML</a> <a class="btn" href="/api/assessment" download="assessment.json">Download JSON</a>
+      <button class="btn" type="button" id="import-answers">Load answers.json</button>
+      <input type="file" id="answers-file" accept=".json,application/json" aria-label="Answers JSON file" hidden>`;
+  if (STATIC) return;
+  const button = document.getElementById('import-answers');
+  const input = document.getElementById('answers-file');
+  button.addEventListener('click', () => input.click());
+  input.addEventListener('change', async () => {
+    const file = input.files[0];
+    if (!file) return;
+    const error = document.getElementById('load-error');
+    const toast = document.getElementById('toast');
+    button.disabled = true;
+    error.hidden = true;
+    toast.hidden = true;
+    try {
+      if (file.size > 64 * 1024) throw new Error('Answers file must be 64 KiB or smaller.');
+      const body = await file.text();
+      const response = await fetch('/api/answers/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+      if (!response.ok) throw new Error(await response.text());
+      data = await response.json();
+      renderSummary(); renderImprovements(); renderControls(); renderQuestionnaire(); renderGaps();
+      activateTab(document.getElementById('tab-button-questionnaire'));
+      toast.textContent = 'Answers loaded and saved locally.';
+      toast.hidden = false;
+      setTimeout(() => { toast.hidden = true; }, 3500);
+    } catch (err) {
+      error.textContent = `Unable to load answers: ${err.message}`;
+      error.hidden = false;
+    } finally {
+      button.disabled = false;
+      input.value = '';
+    }
+  });
 }
 
 const tabButtons = [...document.querySelectorAll('[role="tab"]')];

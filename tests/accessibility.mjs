@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -103,6 +104,27 @@ try {
     await firstQuestion.locator("textarea").blur();
     await page.locator("#toast").getByText("Answer saved locally.").waitFor();
     await axe(page, `After questionnaire answer ${colorScheme}`);
+
+    await page.locator("#answers-file").setInputFiles({
+      name: "answers.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify({ "GOV-11": { answer: "partial", notes: "Imported review notes." } })),
+    });
+    await page.getByRole("status").getByText("Answers loaded and saved locally.").waitFor();
+    const imported = page.locator('.q[data-id="GOV-11"]');
+    assert.equal(await imported.getByRole("radio", { name: "Partial", exact: true }).isChecked(), true);
+    assert.equal(await imported.locator("textarea").inputValue(), "Imported review notes.");
+    await axe(page, `After importing answers ${colorScheme}`);
+    await page.reload();
+    await page.getByRole("tab", { name: "Questionnaire" }).click();
+    assert.equal(await imported.locator("textarea").inputValue(), "Imported review notes.");
+    await page.locator("#answers-file").setInputFiles({
+      name: "answers.json",
+      mimeType: "application/json",
+      buffer: Buffer.from('{"GOV-11":"invalid"}'),
+    });
+    await page.getByRole("alert").getByText(/Unable to load answers/).waitFor();
+    assert.equal(await imported.locator("textarea").inputValue(), "Imported review notes.");
     await page.close();
   }
 
