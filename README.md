@@ -4,6 +4,8 @@ A local dashboard and CLI for identifying improvement opportunities in a GitHub 
 
 This is an independently defined rubric and maturity model, not an official GitHub certification or a comprehensive security audit. Results are indicators for human review, not proof of compliance.
 
+![Example assessment dashboard using fictional demo evidence](docs/images/assessment-dashboard.png)
+
 ## Requirements
 
 - Node.js 20 or later.
