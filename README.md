@@ -10,11 +10,13 @@ This is an independently defined rubric and maturity model, not an official GitH
 - npm, to install and serve the dashboard's local Primer CSS.
 - For live collection, a GitHub token or an authenticated [GitHub CLI](https://cli.github.com/) session. The app uses `GH_TOKEN`, then `GITHUB_TOKEN`, then `gh auth token`.
 
-Install the dependencies once:
+Install the dependencies in the application directory before starting the dashboard or generating HTML reports:
 
 ```sh
 npm ci
 ```
+
+If Primer CSS is missing, the dashboard stops with this instruction instead of displaying an unstyled page. Restart the dashboard after installing dependencies.
 
 ## Try the demo
 
@@ -42,7 +44,7 @@ node bin/gh-waf-assess.js assess --evidence evidence.json --answers answers.json
 node bin/gh-waf-assess.js assess --evidence evidence.json --answers answers.json --format html --out reports/assessment.html
 ```
 
-Reports can also be downloaded from the dashboard. Use `--format json` for machine-readable output, and `--fail-under N` to exit with code 2 when the overall score is below a threshold. See `node bin/gh-waf-assess.js --help` for all options.
+Reports can also be downloaded from the dashboard. HTML reports include Primer CSS so they retain their styling when opened offline. Use `--format json` for machine-readable output, and `--fail-under N` to exit with code 2 when the overall score is below a threshold. See `node bin/gh-waf-assess.js --help` for all options.
 
 ## Access and coverage
 

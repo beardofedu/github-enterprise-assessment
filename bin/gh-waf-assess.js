@@ -8,6 +8,7 @@ import { resolveToken } from '../src/github-client.js';
 import { assess, loadRubric, DEFAULT_RUBRIC_PATH } from '../src/engine.js';
 import { render } from '../src/report.js';
 import { createServer, loadAnswers } from '../src/server.js';
+import { readPrimerCss } from '../src/web-assets.js';
 
 const DEMO_EVIDENCE = fileURLToPath(new URL('../examples/sample-evidence.json', import.meta.url));
 
@@ -141,6 +142,7 @@ async function main() {
       break;
     }
     case 'run': {
+      readPrimerCss();
       const { evidence } = await runCollect(values);
       serve(values, evidence);
       break;

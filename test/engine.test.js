@@ -97,4 +97,6 @@ test('reports render and HTML embedding escapes script-breaking content', () => 
   const html = renderHtml(a);
   assert.ok(html.includes('window.__ASSESSMENT__'));
   assert.ok(!html.includes('</script><script>alert(1)'));
+  assert.ok(html.includes('.UnderlineNav'));
+  assert.ok(!html.includes('<link rel="stylesheet" href="/primer.css">'));
 });

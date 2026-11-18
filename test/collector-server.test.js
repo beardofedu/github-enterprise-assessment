@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import http from 'node:http';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { collect } from '../src/collector.js';
 import { graphqlUrlFor } from '../src/github-client.js';
 import { createServer } from '../src/server.js';
 import { loadRubric } from '../src/engine.js';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { copyFileSync, cpSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -63,6 +64,37 @@ test('collector discovers orgs, paginates, and isolates denied endpoints', async
 test('graphql URL is derived for GHES and github.com', () => {
   assert.equal(graphqlUrlFor('https://ghe.example.com/api/v3'), 'https://ghe.example.com/api/graphql');
   assert.equal(graphqlUrlFor('https://api.github.com'), 'https://api.github.com/graphql');
+});
+
+test('dashboard and HTML reports explain missing Primer before starting', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'waf-no-primer-'));
+  try {
+    for (const name of ['src', 'bin', 'rubric', 'examples']) {
+      cpSync(new URL(`../${name}`, import.meta.url), join(dir, name), { recursive: true });
+    }
+    copyFileSync(new URL('../package.json', import.meta.url), join(dir, 'package.json'));
+    const options = {
+      cwd: dir,
+      encoding: 'utf8',
+      env: { ...process.env, PATH: '', GH_TOKEN: '', GITHUB_TOKEN: '' },
+      timeout: 5000,
+    };
+    for (const args of [
+      ['serve', '--demo'],
+      ['run', '--enterprise', 'example'],
+      ['assess', '--evidence', 'examples/sample-evidence.json', '--format', 'html'],
+    ]) {
+      const result = spawnSync(process.execPath, ['bin/gh-waf-assess.js', ...args], options);
+      assert.ifError(result.error);
+      assert.equal(result.status, 1, result.stderr);
+      assert.match(result.stderr, /Primer CSS is missing.*npm ci/);
+    }
+    const markdown = spawnSync(process.execPath, ['bin/gh-waf-assess.js', 'assess', '--evidence', 'examples/sample-evidence.json', '--format', 'md'], options);
+    assert.ifError(markdown.error);
+    assert.equal(markdown.status, 0, markdown.stderr);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('dashboard server persists answers and rejects foreign hosts and non-JSON posts', async () => {

@@ -1,9 +1,9 @@
 import { spawn } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -43,6 +43,17 @@ async function axe(page, label) {
   console.log(`${label}: no axe violations`);
 }
 
+async function assertPrimerStyles(page, label) {
+  const styles = await page.evaluate(() => ({
+    foreground: getComputedStyle(document.documentElement).getPropertyValue("--fgColor-default").trim(),
+    background: getComputedStyle(document.documentElement).getPropertyValue("--bgColor-default").trim(),
+    cardBorder: getComputedStyle(document.querySelector("#summary .Box")).borderTopStyle,
+  }));
+  if (!styles.foreground || !styles.background || styles.cardBorder !== "solid") {
+    throw new Error(`${label}: Primer styles are not applied: ${JSON.stringify(styles)}`);
+  }
+}
+
 try {
   server = spawn(process.execPath, [
     "bin/gh-waf-assess.js", "serve", "--demo", "--port", String(port), "--answers", answersPath,
@@ -54,6 +65,7 @@ try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, colorScheme });
     await page.goto(url);
     await page.locator("#tab-controls tbody tr").first().waitFor({ state: "attached" });
+    await assertPrimerStyles(page, `Desktop ${colorScheme}`);
     await axe(page, `Desktop ${colorScheme}`);
 
     await page.getByRole("tab", { name: "Questionnaire" }).click();
@@ -65,6 +77,24 @@ try {
     await axe(page, `After questionnaire answer ${colorScheme}`);
     await page.close();
   }
+
+  const reportResponse = await fetch(`${url}/api/report.html`);
+  if (!reportResponse.ok) throw new Error("HTML report could not be downloaded.");
+  const reportPath = join(tempDir, "assessment.html");
+  writeFileSync(reportPath, await reportResponse.text());
+  for (const colorScheme of ["light", "dark"]) {
+    const page = await browser.newPage({ colorScheme, offline: true });
+    const externalRequests = [];
+    page.on("request", (request) => {
+      if (/^https?:/.test(request.url())) externalRequests.push(request.url());
+    });
+    await page.goto(pathToFileURL(reportPath).href);
+    await page.locator("#tab-controls tbody tr").first().waitFor({ state: "attached" });
+    await assertPrimerStyles(page, `Offline report ${colorScheme}`);
+    if (externalRequests.length) throw new Error(`Offline report requested external resources: ${externalRequests.join(", ")}`);
+    await page.close();
+  }
+  console.log("Standalone HTML report: Primer styles applied offline in light and dark themes");
 
   const narrow = await browser.newPage({ viewport: { width: 390, height: 844 }, colorScheme: "light" });
   await narrow.goto(url);
