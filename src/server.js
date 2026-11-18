@@ -2,9 +2,9 @@ import http from 'node:http';
 import { readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
 import { assess, normalizeAnswer } from './engine.js';
 import { renderHtml, renderMarkdown } from './report.js';
+import { readPrimerCss } from './web-assets.js';
 
 const TEMPLATE_URL = new URL('./web/index.html', import.meta.url);
-const PRIMER_CSS_URL = new URL('../node_modules/@primer/css/dist/primer.css', import.meta.url);
 const MAX_BODY = 64 * 1024;
 
 export function loadAnswers(path) {
@@ -35,6 +35,7 @@ function readBody(req) {
 }
 
 export function createServer({ rubric, evidence, answersPath, port }) {
+  const primerCss = readPrimerCss();
   let answers = loadAnswers(answersPath);
   const allowedHosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`]);
   const current = () => assess({ rubric, evidence, answers });
@@ -49,10 +50,10 @@ export function createServer({ rubric, evidence, answersPath, port }) {
     const url = new URL(req.url, `http://${req.headers.host}`);
     try {
       if (req.method === 'GET' && url.pathname === '/') return send(res, 200, readFileSync(TEMPLATE_URL, 'utf8'), 'text/html; charset=utf-8');
-      if (req.method === 'GET' && url.pathname === '/primer.css') return send(res, 200, readFileSync(PRIMER_CSS_URL, 'utf8'), 'text/css; charset=utf-8');
+      if (req.method === 'GET' && url.pathname === '/primer.css') return send(res, 200, primerCss, 'text/css; charset=utf-8');
       if (req.method === 'GET' && url.pathname === '/api/assessment') return send(res, 200, JSON.stringify(current()), 'application/json');
       if (req.method === 'GET' && url.pathname === '/api/report.md') return send(res, 200, renderMarkdown(current()), 'text/markdown; charset=utf-8');
-      if (req.method === 'GET' && url.pathname === '/api/report.html') return send(res, 200, renderHtml(current()), 'text/html; charset=utf-8');
+      if (req.method === 'GET' && url.pathname === '/api/report.html') return send(res, 200, renderHtml(current(), primerCss), 'text/html; charset=utf-8');
       if (req.method === 'POST' && url.pathname === '/api/answers/import') {
         if (!String(req.headers['content-type']).startsWith('application/json')) return send(res, 415, 'Expected application/json', 'text/plain');
         let body;

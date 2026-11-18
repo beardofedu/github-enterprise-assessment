@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
+import { readPrimerCss } from './web-assets.js';
 
 const TEMPLATE_URL = new URL('./web/index.html', import.meta.url);
+const PRIMER_LINK = '<link rel="stylesheet" href="/primer.css">';
 const STATUS_ICON = { pass: '✅', partial: '🟡', fail: '❌', unknown: '❔', unanswered: '📝', not_applicable: '➖' };
 const cell = (s) => String(s ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
 
@@ -53,10 +55,14 @@ export function renderMarkdown(a) {
 }
 
 /** Self-contained HTML report: the dashboard template with the assessment embedded (read-only). */
-export function renderHtml(assessment) {
+export function renderHtml(assessment, primerCss = readPrimerCss()) {
   const template = readFileSync(TEMPLATE_URL, 'utf8');
+  if (!template.includes(PRIMER_LINK)) throw new Error('Dashboard template is missing its Primer stylesheet link.');
+  const css = primerCss.replace(/<\/style/gi, '<\\/style');
   const json = JSON.stringify(assessment).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
-  return template.replace('<script>', () => `<script>window.__ASSESSMENT__ = ${json};</script>\n<script>`);
+  return template
+    .replace('<script>', () => `<script>window.__ASSESSMENT__ = ${json};</script>\n<script>`)
+    .replace(PRIMER_LINK, () => `<style>\n${css}\n</style>`);
 }
 
 export function render(assessment, format) {

@@ -1,10 +1,10 @@
 import { spawn } from "node:child_process";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { chromium } from "playwright";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -44,6 +44,45 @@ async function axe(page, label) {
   console.log(`${label}: no axe violations`);
 }
 
+function contrastRatio(foreground, background) {
+  const parse = (color) => {
+    const channels = color.match(/[\d.]+/g)?.map(Number);
+    if (!channels || channels.length < 3) throw new Error(`Unsupported computed color: ${color}`);
+    return channels;
+  };
+  const fg = parse(foreground);
+  const bg = parse(background);
+  if ((bg[3] ?? 1) !== 1) throw new Error(`Header background is not opaque: ${background}`);
+  const alpha = fg[3] ?? 1;
+  const luminance = (channels) => {
+    const [red, green, blue] = channels.map((channel) => {
+      const value = channel / 255;
+      return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  };
+  const fgLuminance = luminance(fg.slice(0, 3).map((channel, i) => channel * alpha + bg[i] * (1 - alpha)));
+  const bgLuminance = luminance(bg.slice(0, 3));
+  return (Math.max(fgLuminance, bgLuminance) + 0.05) / (Math.min(fgLuminance, bgLuminance) + 0.05);
+}
+
+async function assertPrimerStyles(page, label) {
+  const styles = await page.evaluate(() => ({
+    foreground: getComputedStyle(document.documentElement).getPropertyValue("--fgColor-default").trim(),
+    background: getComputedStyle(document.documentElement).getPropertyValue("--bgColor-default").trim(),
+    cardBorder: getComputedStyle(document.querySelector("#summary .Box")).borderTopStyle,
+    titleColor: getComputedStyle(document.querySelector(".Header h1")).color,
+    headerBackground: getComputedStyle(document.querySelector(".Header")).backgroundColor,
+  }));
+  if (!styles.foreground || !styles.background || styles.cardBorder !== "solid") {
+    throw new Error(`${label}: Primer styles are not applied: ${JSON.stringify(styles)}`);
+  }
+  const titleContrast = contrastRatio(styles.titleColor, styles.headerBackground);
+  if (titleContrast < 4.5) {
+    throw new Error(`${label}: header title contrast is ${titleContrast.toFixed(2)}:1 (minimum 4.5:1)`);
+  }
+}
+
 try {
   server = spawn(process.execPath, [
     "bin/gh-waf-assess.js", "serve", "--demo", "--port", String(port), "--answers", answersPath,
@@ -55,6 +94,7 @@ try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, colorScheme });
     await page.goto(url);
     await page.locator("#tab-controls tbody tr").first().waitFor({ state: "attached" });
+    await assertPrimerStyles(page, `Desktop ${colorScheme}`);
     await axe(page, `Desktop ${colorScheme}`);
 
     await page.getByRole("tab", { name: "Questionnaire" }).click();
@@ -87,6 +127,24 @@ try {
     assert.equal(await imported.locator("textarea").inputValue(), "Imported review notes.");
     await page.close();
   }
+
+  const reportResponse = await fetch(`${url}/api/report.html`);
+  if (!reportResponse.ok) throw new Error("HTML report could not be downloaded.");
+  const reportPath = join(tempDir, "assessment.html");
+  writeFileSync(reportPath, await reportResponse.text());
+  for (const colorScheme of ["light", "dark"]) {
+    const page = await browser.newPage({ colorScheme, offline: true });
+    const externalRequests = [];
+    page.on("request", (request) => {
+      if (/^https?:/.test(request.url())) externalRequests.push(request.url());
+    });
+    await page.goto(pathToFileURL(reportPath).href);
+    await page.locator("#tab-controls tbody tr").first().waitFor({ state: "attached" });
+    await assertPrimerStyles(page, `Offline report ${colorScheme}`);
+    if (externalRequests.length) throw new Error(`Offline report requested external resources: ${externalRequests.join(", ")}`);
+    await page.close();
+  }
+  console.log("Standalone HTML report: Primer styles applied offline in light and dark themes");
 
   const narrow = await browser.newPage({ viewport: { width: 390, height: 844 }, colorScheme: "light" });
   await narrow.goto(url);
