@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GitHub Well-Architected Enterprise Assessment</title>
+<style>
+  :root { --bg:#0d1117; --panel:#161b22; --border:#30363d; --fg:#e6edf3; --muted:#8b949e; --accent:#2f81f7;
+          --pass:#3fb950; --partial:#d29922; --fail:#f85149; --unknown:#8b949e; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; background:var(--bg); color:var(--fg); }
+  header { padding:24px 32px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:flex-end; gap:24px; flex-wrap:wrap; }
+  header h1 { margin:0; font-size:22px; } header p { margin:4px 0 0; color:var(--muted); }
+  main { padding:24px 32px; max-width:1400px; margin:0 auto; }
+  a { color:var(--accent); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:16px; }
+  .big { font-size:40px; font-weight:600; line-height:1; }
+  .muted { color:var(--muted); } .small { font-size:12px; }
+  .bar { height:8px; background:#21262d; border-radius:4px; overflow:hidden; margin:8px 0; }
+  .bar > span { display:block; height:100%; }
+  .pill { display:inline-block; padding:1px 8px; border-radius:12px; font-size:12px; font-weight:600; border:1px solid currentColor; white-space:nowrap; }
+  .s-pass{color:var(--pass)} .s-partial{color:var(--partial)} .s-fail{color:var(--fail)}
+  .s-unknown,.s-unanswered,.s-not_applicable{color:var(--unknown)}
+  .sev-High{color:var(--fail)} .sev-Medium{color:var(--partial)} .sev-Low{color:var(--muted)}
+  nav.tabs { display:flex; gap:4px; margin:24px 0 16px; border-bottom:1px solid var(--border); }
+  nav.tabs button { background:none; border:none; color:var(--muted); padding:8px 14px; cursor:pointer; font:inherit; border-bottom:2px solid transparent; }
+  nav.tabs button.active { color:var(--fg); border-bottom-color:#f78166; }
+  table { width:100%; border-collapse:collapse; } th,td { text-align:left; padding:10px 8px; border-bottom:1px solid var(--border); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; }
+  .filters { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+  select, input, textarea, button.btn { background:#0d1117; color:var(--fg); border:1px solid var(--border); border-radius:6px; padding:6px 10px; font:inherit; }
+  button.btn { cursor:pointer; background:#21262d; } button.btn.primary { background:#238636; border-color:#2ea043; }
+  .q { padding:14px 0; border-bottom:1px solid var(--border); }
+  .q .opts { display:flex; gap:12px; margin:8px 0; flex-wrap:wrap; }
+  .q textarea { width:100%; min-height:38px; }
+  .hidden { display:none; }
+  .remediation { margin-top:6px; } details summary { cursor:pointer; color:var(--muted); }
+  #toast { position:fixed; bottom:20px; right:20px; background:#238636; padding:8px 14px; border-radius:6px; display:none; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>GitHub Well-Architected Enterprise Assessment</h1>
+    <p id="subtitle">Loading…</p>
+  </div>
+  <div id="actions"></div>
+</header>
+<main>
+  <section class="grid" id="summary"></section>
+  <nav class="tabs">
+    <button data-tab="improvements" class="active">Improvement areas</button>
+    <button data-tab="controls">All controls</button>
+    <button data-tab="questionnaire">Questionnaire</button>
+    <button data-tab="gaps">Coverage gaps</button>
+  </nav>
+  <section id="tab-improvements"></section>
+  <section id="tab-controls" class="hidden"></section>
+  <section id="tab-questionnaire" class="hidden"></section>
+  <section id="tab-gaps" class="hidden"></section>
+</main>
+<div id="toast">Saved</div>
+<script>
+const STATIC = window.__ASSESSMENT__ || null;
+let data = STATIC;
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+const colorFor = (score) => score == null ? 'var(--unknown)' : score >= 75 ? 'var(--pass)' : score >= 50 ? 'var(--partial)' : 'var(--fail)';
+const pill = (status) => `<span class="pill s-${esc(status)}">${esc(status.replace('_', ' '))}</span>`;
+const pillarName = (id) => data.pillars.find((p) => p.id === id)?.name || id;
+const refs = (list) => (list || []).map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener">Well-Architected guidance</a>`).join(' · ');
+
+function renderSummary() {
+  const m = data.meta, o = data.overall;
+  const scope = [m.enterprise ? `Enterprise: ${m.enterprise}` : null, `${m.organizations.length} organization(s)`, m.evidenceGeneratedAt ? `Evidence: ${new Date(m.evidenceGeneratedAt).toLocaleString()}` : null].filter(Boolean).join(' · ');
+  document.getElementById('subtitle').textContent = scope;
+  const cards = [`<div class="card"><div class="muted small">Overall score</div><div class="big" style="color:${colorFor(o.score)}">${o.score ?? '—'}</div>
+    <div>${o.maturity ? `Level ${o.maturity.level}: ${esc(o.maturity.name)}` : 'Not enough data'}</div>
+    <div class="muted small">${o.assessedControls}/${o.applicableControls} controls assessed (${o.coverage}% coverage)</div></div>`];
+  for (const p of data.pillars) {
+    cards.push(`<div class="card"><div style="display:flex;justify-content:space-between"><strong><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.name)}</a></strong><span style="color:${colorFor(p.score)};font-weight:600">${p.score ?? '—'}</span></div>
+      <div class="bar"><span style="width:${p.score ?? 0}%;background:${colorFor(p.score)}"></span></div>
+      <div class="small">${p.maturity ? esc(p.maturity.name) : 'Not assessed'} · ${p.coverage}% coverage</div>
+      <div class="small muted">${['pass','partial','fail','unknown','unanswered'].filter((s) => p.counts[s]).map((s) => `${p.counts[s]} ${s}`).join(' · ')}</div></div>`);
+  }
+  document.getElementById('summary').innerHTML = cards.join('');
+}
+
+function renderImprovements() {
+  const el = document.getElementById('tab-improvements');
+  if (!data.improvements.length) { el.innerHTML = '<p class="muted">No improvement areas identified among assessed controls.</p>'; return; }
+  el.innerHTML = `<p class="muted">Ranked by priority (control weight × gap). Address High severity failures first.</p><table><thead><tr><th>#</th><th>Control</th><th>Pillar</th><th>Status</th><th>Severity</th><th>Finding &amp; recommendation</th></tr></thead><tbody>${
+    data.improvements.map((c, i) => `<tr><td>${i + 1}</td><td><strong>${esc(c.id)}</strong><br>${esc(c.title)}</td><td>${esc(pillarName(c.pillar))}<br><span class="muted small">${esc(c.area)}</span></td><td>${pill(c.status)}</td><td><span class="sev-${esc(c.severity)}">${esc(c.severity)}</span></td>
+      <td>${esc(c.finding)}<div class="remediation"><strong>Recommendation:</strong> ${esc(c.remediation)}</div><div class="small">${refs(c.references)}</div></td></tr>`).join('')
+  }</tbody></table>`;
+}
+
+function renderControls() {
+  const el = document.getElementById('tab-controls');
+  const pf = el.querySelector('#f-pillar')?.value || '', sf = el.querySelector('#f-status')?.value || '';
+  const rows = data.controls.filter((c) => (!pf || c.pillar === pf) && (!sf || c.status === sf));
+  const statuses = [...new Set(data.controls.map((c) => c.status))];
+  el.innerHTML = `<div class="filters"><select id="f-pillar"><option value="">All pillars</option>${data.pillars.map((p) => `<option value="${p.id}" ${p.id === pf ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>
+    <select id="f-status"><option value="">All statuses</option>${statuses.map((s) => `<option ${s === sf ? 'selected' : ''}>${s}</option>`).join('')}</select>
+    <span class="muted" style="align-self:center">${rows.length} controls</span></div>
+    <table><thead><tr><th>Control</th><th>Pillar / area</th><th>Type</th><th>Weight</th><th>Status</th><th>Finding</th></tr></thead><tbody>${
+    rows.map((c) => `<tr><td><strong>${esc(c.id)}</strong><br>${esc(c.title)}</td><td>${esc(pillarName(c.pillar))}<br><span class="muted small">${esc(c.area)}</span></td><td>${esc(c.source)}</td><td>${c.weight}</td><td>${pill(c.status)}</td>
+      <td>${esc(c.finding)}${c.notes ? `<div class="small muted">Notes: ${esc(c.notes)}</div>` : ''}<details><summary>Recommendation</summary>${esc(c.remediation)}<div class="small">${refs(c.references)}</div></details></td></tr>`).join('')
+  }</tbody></table>`;
+  el.querySelector('#f-pillar').onchange = renderControls;
+  el.querySelector('#f-status').onchange = renderControls;
+}
+
+function renderQuestionnaire() {
+  const el = document.getElementById('tab-questionnaire');
+  const qs = data.controls.filter((c) => c.type === 'manual' || c.status === 'unknown' || c.source === 'manual-override');
+  const intro = STATIC ? '<p class="muted">Static report — run <code>gh-waf-assess serve</code> to answer questions interactively.</p>'
+    : '<p class="muted">Answer process and practice questions that the API cannot observe. Unknown automated controls can also be answered manually. Answers are saved locally to your answers file.</p>';
+  el.innerHTML = intro + data.pillars.map((p) => {
+    const items = qs.filter((c) => c.pillar === p.id);
+    if (!items.length) return '';
+    return `<h3>${esc(p.name)}</h3>` + items.map((c) => {
+      const current = c.source === 'automated' && c.status === 'unknown' ? '' : ({ pass: 'yes', partial: 'partial', fail: 'no', not_applicable: 'na' }[c.status] || '');
+      const question = c.question || `${c.title}? (Automated check could not run: ${c.automatedFinding || c.finding})`;
+      return `<div class="q" data-id="${esc(c.id)}"><strong>${esc(c.id)}</strong> ${pill(c.status)} — ${esc(question)}
+        <div class="opts">${['yes','partial','no','na'].map((a) => `<label><input type="radio" name="a-${esc(c.id)}" value="${a}" ${current === a ? 'checked' : ''} ${STATIC ? 'disabled' : ''}> ${a === 'na' ? 'Not applicable' : a[0].toUpperCase() + a.slice(1)}</label>`).join('')}</div>
+        <textarea placeholder="Notes / evidence (optional)" ${STATIC ? 'disabled' : ''}>${esc(c.notes)}</textarea></div>`;
+    }).join('');
+  }).join('');
+  if (STATIC) return;
+  el.querySelectorAll('.q').forEach((q) => {
+    const save = async () => {
+      const answer = q.querySelector('input:checked')?.value;
+      if (!answer) return;
+      const res = await fetch('/api/answers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: q.dataset.id, answer, notes: q.querySelector('textarea').value }) });
+      if (!res.ok) { alert('Failed to save answer'); return; }
+      data = await res.json();
+      renderSummary(); renderImprovements(); renderControls(); renderGaps();
+      const t = document.getElementById('toast'); t.style.display = 'block'; setTimeout(() => (t.style.display = 'none'), 1200);
+    };
+    q.querySelectorAll('input').forEach((i) => (i.onchange = save));
+    q.querySelector('textarea').onblur = save;
+  });
+}
+
+function renderGaps() {
+  const el = document.getElementById('tab-gaps');
+  if (!data.coverageGaps.length) { el.innerHTML = '<p class="muted">Every applicable control has been assessed.</p>'; return; }
+  el.innerHTML = `<p class="muted">These controls are excluded from scores until evidence is available. Grant the token more scopes, re-run collection, or answer them in the questionnaire.</p>
+    <table><thead><tr><th>Control</th><th>Pillar</th><th>Status</th><th>Reason</th></tr></thead><tbody>${
+    data.coverageGaps.map((g) => `<tr><td><strong>${esc(g.id)}</strong><br>${esc(g.title)}</td><td>${esc(pillarName(g.pillar))}</td><td>${pill(g.status)}</td><td>${esc(g.finding)}</td></tr>`).join('')}</tbody></table>`;
+}
+
+function renderActions() {
+  document.getElementById('actions').innerHTML = STATIC ? `<span class="muted small">Generated ${new Date(data.meta.assessedAt).toLocaleString()}</span>`
+    : `<a class="btn" href="/api/report.md" download="assessment.md">Download Markdown</a> <a class="btn" href="/api/report.html" download="assessment.html">Download HTML</a> <a class="btn" href="/api/assessment" download="assessment.json">Download JSON</a>`;
+}
+
+document.querySelectorAll('nav.tabs button').forEach((b) => (b.onclick = () => {
+  document.querySelectorAll('nav.tabs button').forEach((x) => x.classList.toggle('active', x === b));
+  document.querySelectorAll('main > section[id^=tab-]').forEach((s) => s.classList.toggle('hidden', s.id !== `tab-${b.dataset.tab}`));
+}));
+
+(async () => {
+  if (!data) data = await (await fetch('/api/assessment')).json();
+  renderActions(); renderSummary(); renderImprovements(); renderControls(); renderQuestionnaire(); renderGaps();
+})();
+</script>
+</body>
+</html>

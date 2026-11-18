@@ -1,0 +1,7 @@
+# Assessment outputs can contain sensitive enterprise configuration data
+evidence*.json
+answers*.json
+!examples/answers.example.json
+reports/
+*.tmp
+node_modules/
