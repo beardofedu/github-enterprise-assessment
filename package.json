@@ -1,0 +1,15 @@
+{
+  "name": "github-enterprise-assessment",
+  "private": true,
+  "description": "Locally served Primer CSS and accessibility test dependencies.",
+  "scripts": {
+    "test:a11y": "node tests/accessibility.mjs"
+  },
+  "dependencies": {
+    "@primer/css": "^21.0.0"
+  },
+  "devDependencies": {
+    "axe-core": "^4.10.3",
+    "playwright": "^1.55.0"
+  }
+}
