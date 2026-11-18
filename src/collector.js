@@ -189,7 +189,17 @@ export async function collectOrg(client, org, { sampleSize = 25, maxRepos = 1000
   return result;
 }
 
-export async function collect({ token, apiUrl, enterprise, orgs, sampleSize = 25, maxRepos = 1000, log = () => {}, fetchImpl } = {}) {
+/** Raised when an enterprise slug is given but its organizations cannot be listed with the current token. */
+export class EnterpriseUnavailableError extends Error {
+  constructor(enterprise, cause) {
+    super(`Enterprise '${enterprise}' is not available to the authenticated token: ${cause}`);
+    this.name = 'EnterpriseUnavailableError';
+    this.enterprise = enterprise;
+    this.detail = cause;
+  }
+}
+
+export async function collect({ token, apiUrl, enterprise, orgs, tokenOrgFallback = false, sampleSize = 25, maxRepos = 1000, log = () => {}, fetchImpl } = {}) {
   const client = new GitHubClient({ token, apiUrl, fetchImpl });
   let orgList = orgs?.length ? orgs : null;
   let orgDiscovery = { ok: true, source: 'cli' };
@@ -200,6 +210,8 @@ export async function collect({ token, apiUrl, enterprise, orgs, sampleSize = 25
     if (found.ok) {
       orgList = found.data;
       orgDiscovery = { ok: true, source: 'enterprise' };
+    } else if (!tokenOrgFallback) {
+      throw new EnterpriseUnavailableError(enterprise, found.error);
     } else {
       orgDiscovery = { ok: false, source: 'enterprise', error: found.error };
     }

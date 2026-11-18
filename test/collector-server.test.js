@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import http from 'node:http';
 import assert from 'node:assert/strict';
-import { collect } from '../src/collector.js';
+import { collect, EnterpriseUnavailableError } from '../src/collector.js';
 import { graphqlUrlFor } from '../src/github-client.js';
 import { createServer } from '../src/server.js';
 import { loadRubric } from '../src/engine.js';
@@ -58,6 +58,20 @@ test('collector discovers orgs, paginates, and isolates denied endpoints', async
   assert.deepEqual(org.repoSample.data, [{ name: 'r1', codeowners: { ok: true, data: true }, workflows: { ok: true, data: 2 } }]);
   assert.equal(org.communityFiles.data.securityPolicy, false);
   assert.ok(calls.every((c) => c.method === 'GET' || c.path === '/graphql'), 'only read operations are issued');
+});
+
+test('collector stops when the enterprise is unavailable unless token-org fallback is allowed', async () => {
+  const routes = {
+    graphql: () => ({ body: { data: { enterprise: null } } }),
+    '/user/orgs': { body: [{ login: 'mine' }] },
+  };
+  await assert.rejects(
+    collect({ token: 't', apiUrl: 'https://api.test', enterprise: 'nope', fetchImpl: mockFetch(routes) }),
+    (err) => err instanceof EnterpriseUnavailableError && err.enterprise === 'nope' && /not found or not accessible/.test(err.message),
+  );
+  const ev = await collect({ token: 't', apiUrl: 'https://api.test', enterprise: 'nope', tokenOrgFallback: true, sampleSize: 0, fetchImpl: mockFetch(routes) });
+  assert.deepEqual(ev.meta.organizations, ['mine']);
+  assert.equal(ev.meta.orgDiscovery.ok, false);
 });
 
 test('graphql URL is derived for GHES and github.com', () => {
