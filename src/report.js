@@ -46,6 +46,12 @@ export function renderMarkdown(a) {
     lines.push('| Control | Pillar | Status | Reason |', '|---|---|---|---|');
     for (const g of a.coverageGaps) lines.push(`| ${g.id} ${cell(g.title)} | ${pillarName(g.pillar)} | ${g.status} | ${cell(g.question || g.finding)} |`);
     lines.push('');
+    if (a.coverageAccess) {
+      lines.push('To fill the permission-related gaps, add the missing scopes to the GitHub CLI token and re-run collection:', '', '```sh', a.coverageAccess.command, '```', '');
+      if (a.coverageAccess.requiresRepositoryAdmin) lines.push('The authenticated account must also have repository administrator access.', '');
+      if (a.coverageAccess.requiresOwner) lines.push('The authenticated account must also be an organization owner (or have the matching fine-grained permission).', '');
+      if (a.coverageAccess.requiresSecurityManager) lines.push('The authenticated account must also have the security manager role.', '');
+    }
   }
 
   lines.push('## All controls', '', '| Control | Pillar | Source | Status | Finding |', '|---|---|---|---|---|');
