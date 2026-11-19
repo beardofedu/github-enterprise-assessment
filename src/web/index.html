@@ -9,9 +9,15 @@
   body { margin: 0; color: var(--fgColor-default); background: var(--bgColor-default); }
   .Header { color: var(--fgColor-default); background: var(--bgColor-default); border-bottom: 1px solid var(--borderColor-default); }
   .header-content { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .header-actions, .theme-selector { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
   .skip-link { position: absolute; z-index: 2; top: .5rem; left: .5rem; transform: translateY(-200%); }
   .skip-link:focus { transform: translateY(0); }
   .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 1rem; }
+  .pillar-card { position: relative; }
+  .pillar-card:hover { border-color: var(--borderColor-accent-emphasis, var(--borderColor-default)); }
+  .pillar-card-action { font: inherit; text-align: left; }
+  .pillar-card-action::after { position: absolute; inset: 0; content: ''; }
+  .pillar-card-guidance { position: relative; z-index: 1; }
   .score { font-size: 2rem; font-weight: 600; line-height: 1.2; }
   .ScoreProgress { display: block; width: 100%; margin: .5rem 0; }
   .UnderlineNav { overflow-x: auto; }
@@ -29,12 +35,17 @@
   .q textarea { min-height: 4rem; width: min(100%, 48rem); }
   .remediation { margin-top: .375rem; }
   .implementation-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: .5rem; }
+  .finding-link { min-height: 24px; text-align: left; text-decoration: underline; white-space: normal; }
   .copy-command { display: flex; align-items: flex-start; gap: .5rem; margin-top: .5rem; }
   .copy-command pre { flex: 1; margin: 0; padding: .5rem .75rem; overflow-x: auto; background: var(--bgColor-muted); border: 1px solid var(--borderColor-default); border-radius: 6px; font-size: 12px; }
   dialog { max-width: min(36rem, calc(100vw - 2rem)); border: 1px solid var(--borderColor-default); border-radius: .5rem; color: var(--fgColor-default); background: var(--bgColor-default); }
   dialog::backdrop { background: rgb(31 35 40 / 60%); }
+  #finding-details-dialog { width: min(42rem, calc(100vw - 2rem)); max-width: min(42rem, calc(100vw - 2rem)); max-height: min(80vh, 48rem); overflow-y: auto; }
+  .finding-details-header { position: sticky; top: 0; z-index: 1; padding-bottom: .5rem; background: var(--bgColor-default); }
+  .breakdown-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: 0 1rem; }
+  .breakdown-list { padding-left: 1.25rem; overflow-wrap: anywhere; }
   .implementation-form { display: grid; gap: .75rem; }
-  details summary { cursor: pointer; color: var(--fgColor-muted); }
+  details summary { min-height: 24px; cursor: pointer; color: var(--fgColor-muted); }
   :focus-visible { outline: 2px solid var(--focus-outlineColor); outline-offset: 2px; }
   #toast, #save-error, #load-error { position: fixed; z-index: 10; right: 1rem; bottom: 1rem; max-width: calc(100vw - 2rem); }
   #save-error, #load-error { bottom: 4rem; }
@@ -56,7 +67,20 @@
       <h1 class="h2 m-0">GitHub Well-Architected Enterprise Assessment</h1>
       <p class="color-fg-muted m-0" id="subtitle">Loading assessment…</p>
     </div>
-    <div class="d-flex flex-wrap gap-2" id="actions"></div>
+    <div class="header-actions">
+      <div class="d-flex flex-wrap gap-2" id="actions"></div>
+      <div class="theme-selector">
+        <label for="theme-select">Theme</label>
+        <select class="FormControl-select" id="theme-select">
+          <option value="system">System</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+          <option value="high-contrast">High contrast (system)</option>
+          <option value="colorblind">Colorblind (system)</option>
+        </select>
+        <span class="color-fg-danger text-small" id="theme-error" role="alert" hidden></span>
+      </div>
+    </div>
   </div>
 </header>
 <main class="container-xl px-3 py-4" id="main-content">
@@ -77,9 +101,24 @@
 <div id="toast" class="flash flash-success" role="status" aria-live="polite" aria-atomic="true" hidden></div>
 <div id="save-error" class="flash flash-error" role="alert" hidden></div>
 <div id="load-error" class="flash flash-error" role="alert" hidden></div>
+<dialog id="finding-details-dialog" aria-labelledby="finding-details-title">
+  <div class="finding-details-header d-flex flex-justify-between flex-items-start gap-2">
+    <h2 class="h3" id="finding-details-title"></h2>
+    <form method="dialog"><button class="btn" type="submit">Close</button></form>
+  </div>
+  <div id="finding-details-content"></div>
+</dialog>
 <script>
 const STATIC = window.__ASSESSMENT__ || null;
 let data = STATIC;
+const THEME_KEY = 'github-enterprise-assessment-theme';
+const THEMES = {
+  system: { colorMode: 'auto', lightTheme: 'light', darkTheme: 'dark' },
+  light: { colorMode: 'light', lightTheme: 'light', darkTheme: 'dark' },
+  dark: { colorMode: 'dark', lightTheme: 'light', darkTheme: 'dark' },
+  'high-contrast': { colorMode: 'auto', lightTheme: 'light_high_contrast', darkTheme: 'dark_high_contrast' },
+  colorblind: { colorMode: 'auto', lightTheme: 'light_colorblind', darkTheme: 'dark_colorblind' },
+};
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 const pill = (status) => {
   const styles = { pass: 'Label--success', partial: 'Label--attention', fail: 'Label--danger' };
@@ -96,6 +135,32 @@ const documentationLink = (list) => {
 };
 const scoreProgress = (label, score) => score == null ? '<p class="color-fg-muted">Score not available</p>'
   : `<progress class="ScoreProgress" max="100" value="${score}" aria-label="${esc(label)} score: ${score} percent"></progress>`;
+
+function setupTheme() {
+  const selector = document.getElementById('theme-select');
+  const error = document.getElementById('theme-error');
+  const apply = (theme) => Object.assign(document.documentElement.dataset, THEMES[theme]);
+  const showError = (message) => { error.textContent = message; error.hidden = false; };
+  let selected = 'system';
+  try {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved !== null && Object.hasOwn(THEMES, saved)) selected = saved;
+    else if (saved !== null) showError('The saved theme is unavailable. Choose a theme to replace it.');
+  } catch {
+    showError('The saved theme could not be loaded. This browser may not save your selection.');
+  }
+  selector.value = selected;
+  apply(selected);
+  selector.addEventListener('change', () => {
+    apply(selector.value);
+    try {
+      localStorage.setItem(THEME_KEY, selector.value);
+      error.hidden = true;
+    } catch {
+      showError('Theme applied, but this browser could not save your selection.');
+    }
+  });
+}
 
 function downloadTask(control) {
     const access = data.coverageGaps.find((g) => g.id === control.id)?.access;
@@ -134,11 +199,48 @@ function downloadTask(control) {
     setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 }
 
-function bindImplementationActions(el) {
+function findingText(control) {
+  const breakdown = control.details?.breakdown;
+  if (control.source !== 'automated' || !breakdown || (!breakdown.items?.length && !breakdown.unavailable?.length)) return esc(control.finding);
+  const entities = breakdown.kind === 'repository' ? 'repositories' : 'organizations';
+  return `<button class="btn-link finding-link" type="button" data-breakdown="${esc(control.id)}" aria-haspopup="dialog" aria-label="${esc(control.finding)} View ${entities}.">${esc(control.finding)}</button>`;
+}
+
+function showFindingDetails(control) {
+  const { kind, items, labels = {}, unavailable = [], truncated, sampled } = control.details.breakdown;
+  const groups = [
+    ['pass', labels.pass || 'Meets requirement'],
+    ['fail', labels.fail || 'Does not meet requirement'],
+    ['partial', 'Partially meets requirement'],
+    ['unknown', 'Not assessed'],
+    ['not_applicable', 'Not applicable'],
+  ];
+  const notices = [];
+  if (sampled) notices.push('Only sampled repositories were assessed. Other collected repositories are listed as not assessed.');
+  if (truncated) notices.push('Repository inventory was truncated by --max-repos. Increase the limit and recollect to include the rest.');
+  if (unavailable.length) notices.push(`Repository inventory unavailable for: ${unavailable.join(', ')}.`);
+  document.getElementById('finding-details-title').textContent = `${control.id}: ${control.title}`;
+  document.getElementById('finding-details-content').innerHTML = `<p>${esc(control.finding)}</p>
+    <p class="color-fg-muted text-small">Results for collected ${kind === 'repository' ? 'active repositories' : 'organizations'}.</p>
+    ${notices.map((notice) => `<p class="color-fg-muted text-small">${esc(notice)}</p>`).join('')}
+    <div class="breakdown-groups">${groups.map(([status, title]) => {
+      const entries = items.filter((item) => item.status === status).sort((a, b) => a.name.localeCompare(b.name));
+      if (!entries.length && status !== 'pass' && status !== 'fail') return '';
+      return `<section><h3 class="h5 mt-3">${esc(title)} (${entries.length})</h3>${entries.length
+        ? `<ul class="breakdown-list">${entries.map((item) => `<li>${esc(item.name)}${item.note ? ` — ${esc(item.note)}` : ''}</li>`).join('')}</ul>`
+        : '<p class="color-fg-muted text-small">None.</p>'}</section>`;
+    }).join('')}</div>`;
+  document.getElementById('finding-details-dialog').showModal();
+}
+
+function bindControlActions(el) {
   el.querySelectorAll('[data-task]').forEach((button) => button.addEventListener('click', () => {
     const control = data.controls.find((item) => item.id === button.dataset.task);
     if (!control) return;
     downloadTask(control);
+  }));
+  el.querySelectorAll('[data-breakdown]').forEach((button) => button.addEventListener('click', () => {
+    showFindingDetails(data.controls.find((item) => item.id === button.dataset.breakdown));
   }));
 }
 
@@ -151,26 +253,37 @@ function renderSummary() {
     <p class="mb-1">${o.maturity ? `Level ${o.maturity.level}: ${esc(o.maturity.name)}` : 'Not enough data'}</p>
     <p class="color-fg-muted text-small mb-0">${o.assessedControls}/${o.applicableControls} controls assessed (${o.coverage}% coverage)</p></article>`];
   for (const p of data.pillars) {
-    cards.push(`<article class="Box p-3"><div class="d-flex flex-justify-between flex-items-center"><h2 class="h5 m-0"><a href="${esc(p.url)}">${esc(p.name)}</a></h2><span class="score">${p.score ?? '—'}</span></div>
+    cards.push(`<article class="Box p-3 pillar-card"><div class="d-flex flex-justify-between flex-items-center"><h2 class="h5 m-0"><button class="btn-link pillar-card-action" type="button" data-pillar="${esc(p.id)}" aria-controls="tab-controls" aria-label="View ${esc(p.name)} controls">${esc(p.name)}</button></h2><span class="score">${p.score ?? '—'}</span></div>
       ${scoreProgress(p.name, p.score)}
       <p class="text-small mb-1">${p.maturity ? esc(p.maturity.name) : 'Not assessed'} · ${p.coverage}% coverage</p>
-      <p class="text-small color-fg-muted mb-0">${['pass','partial','fail','unknown','unanswered'].filter((s) => p.counts[s]).map((s) => `${p.counts[s]} ${s.replace('_', ' ')}`).join(' · ') || 'No assessed controls'}</p></article>`);
+      <p class="text-small color-fg-muted mb-0">${['pass','partial','fail','unknown','unanswered'].filter((s) => p.counts[s]).map((s) => `${p.counts[s]} ${s.replace('_', ' ')}`).join(' · ') || 'No assessed controls'}</p>
+      <a class="pillar-card-guidance text-small" href="${esc(p.url)}" aria-label="${esc(p.name)} Well-Architected guidance">Well-Architected guidance</a></article>`);
   }
-  document.getElementById('summary').innerHTML = cards.join('');
+  const summary = document.getElementById('summary');
+  summary.innerHTML = cards.join('');
+  summary.querySelectorAll('[data-pillar]').forEach((button) => button.addEventListener('click', () => {
+    document.getElementById('f-pillar').value = button.dataset.pillar;
+    renderControls();
+    activateTab(document.getElementById('tab-button-controls'));
+    const panel = document.getElementById('tab-controls');
+    panel.focus({ preventScroll: true });
+    panel.scrollIntoView({ block: 'start' });
+  }));
 }
 
 function renderImprovements() {
   const el = document.getElementById('tab-improvements');
   if (!data.improvements.length) { el.innerHTML = '<h2 class="h3">Improvement areas</h2><p class="color-fg-muted">No improvement areas identified among assessed controls.</p>'; return; }
   const rows = data.improvements.map((c, i) => {
+    const control = data.controls.find((item) => item.id === c.id);
     return `<tr><td>${i + 1}</td><td><strong>${esc(c.id)}</strong><br>${esc(c.title)}</td><td>${esc(pillarName(c.pillar))}<br><span class="color-fg-muted text-small">${esc(c.area)}</span></td><td>${pill(c.status)}</td><td><span class="Label ${c.severity === 'High' ? 'Label--danger' : c.severity === 'Medium' ? 'Label--attention' : 'Label--secondary'}">${esc(c.severity)}</span></td>
-      <td>${esc(c.finding)}<div class="remediation"><strong>Recommendation:</strong> ${esc(c.remediation)}</div><div class="implementation-actions">
+      <td>${findingText(control || c)}<div class="remediation"><strong>Recommendation:</strong> ${esc(c.remediation)}</div><div class="implementation-actions">
         <button class="btn btn-sm" type="button" data-task="${esc(c.id)}" aria-label="Download task for ${esc(c.id)}: ${esc(c.title)}">Download task</button>
         <span class="color-fg-muted text-small">Manual implementation or task export only</span>
         ${documentationLink(c.references)} ${implementationGuideLink()}</div></td></tr>`;
   }).join('');
   el.innerHTML = `<h2 class="h3">Improvement areas</h2><p class="color-fg-muted">Ranked by priority (control weight × gap). Address High severity failures first. The dashboard only downloads tasks and never changes GitHub settings.</p><div class="table-wrap" role="region" aria-label="Improvement areas table" tabindex="0"><table><thead><tr><th scope="col">#</th><th scope="col">Control</th><th scope="col">Pillar</th><th scope="col">Status</th><th scope="col">Severity</th><th scope="col">Finding &amp; recommendation</th></tr></thead><tbody>${rows}</tbody></table></div>`;
-  bindImplementationActions(el);
+  bindControlActions(el);
 }
 
 function renderControls() {
@@ -179,17 +292,17 @@ function renderControls() {
   const rows = data.controls.filter((c) => (!pf || c.pillar === pf) && (!sf || c.status === sf));
   const statuses = [...new Set(data.controls.map((c) => c.status))];
   el.innerHTML = `<h2 class="h3">All controls</h2><div class="filters">
-    <label class="filter-control" for="f-pillar">Pillar<select class="FormControl-select" id="f-pillar"><option value="">All pillars</option>${data.pillars.map((p) => `<option value="${p.id}" ${p.id === pf ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></label>
+    <label class="filter-control" for="f-pillar">Pillar<select class="FormControl-select" id="f-pillar"><option value="">All pillars</option>${data.pillars.map((p) => `<option value="${esc(p.id)}" ${p.id === pf ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></label>
     <label class="filter-control" for="f-status">Status<select class="FormControl-select" id="f-status"><option value="">All statuses</option>${statuses.map((s) => `<option value="${esc(s)}" ${s === sf ? 'selected' : ''}>${esc(s.replace('_', ' '))}</option>`).join('')}</select></label>
     <span class="color-fg-muted" id="control-count" role="status" aria-live="polite">${rows.length} controls</span></div>
     <div class="table-wrap" role="region" aria-label="Controls table" tabindex="0"><table><thead><tr><th scope="col">Control</th><th scope="col">Pillar / area</th><th scope="col">Type</th><th scope="col">Weight</th><th scope="col">Status</th><th scope="col">Finding</th></tr></thead><tbody>${
     rows.map((c) => `<tr><td><strong>${esc(c.id)}</strong><br>${esc(c.title)}</td><td>${esc(pillarName(c.pillar))}<br><span class="color-fg-muted text-small">${esc(c.area)}</span></td><td>${esc(c.source)}</td><td>${c.weight}</td><td>${pill(c.status)}</td>
-      <td>${esc(c.finding)}${c.notes ? `<div class="text-small color-fg-muted">Notes: ${esc(c.notes)}</div>` : ''}<details><summary>Recommendation</summary>${esc(c.remediation)}<div class="text-small">${refs(c.references)}</div></details>
+      <td>${findingText(c)}${c.notes ? `<div class="text-small color-fg-muted">Notes: ${esc(c.notes)}</div>` : ''}<details><summary>Recommendation</summary>${esc(c.remediation)}<div class="text-small">${refs(c.references)}</div></details>
         ${c.status === 'pass' || c.status === 'not_applicable' ? '' : `<div class="implementation-actions"><button class="btn btn-sm" type="button" data-task="${esc(c.id)}" aria-label="Download task for ${esc(c.id)}: ${esc(c.title)}">Download task</button>
         <span class="color-fg-muted text-small">Manual implementation or task export only</span>
         ${documentationLink(c.references)} ${implementationGuideLink()}</div>`}</td></tr>`).join('')
   }</tbody></table></div>`;
-  bindImplementationActions(el);
+  bindControlActions(el);
   for (const id of ['f-pillar', 'f-status']) {
     el.querySelector(`#${id}`).addEventListener('change', () => {
       renderControls();
@@ -273,13 +386,13 @@ function renderGaps() {
     <div class="table-wrap" role="region" aria-label="Coverage gaps table" tabindex="0"><table><thead><tr><th scope="col">Control</th><th scope="col">Pillar</th><th scope="col">Status</th><th scope="col">Reason</th></tr></thead><tbody>${
     data.coverageGaps.map((g) => {
       const control = data.controls.find((item) => item.id === g.id);
-      return `<tr><td><strong>${esc(g.id)}</strong><br>${esc(g.title)}</td><td>${esc(pillarName(g.pillar))}</td><td>${pill(g.status)}</td><td>${esc(g.finding)}
+      return `<tr><td><strong>${esc(g.id)}</strong><br>${esc(g.title)}</td><td>${esc(pillarName(g.pillar))}</td><td>${pill(g.status)}</td><td>${findingText(control || g)}
         ${accessHelp(g.access, 'To fix,')}
         <div class="implementation-actions"><button class="btn btn-sm" type="button" data-task="${esc(g.id)}" aria-label="Download task for ${esc(g.id)}: ${esc(g.title)}">Download task</button>
         <span class="color-fg-muted text-small">Manual evidence review or task export only</span>
         ${documentationLink(control?.references)} ${implementationGuideLink()}</div></td></tr>`;
     }).join('')}</tbody></table></div>`;
-  bindImplementationActions(el);
+  bindControlActions(el);
   bindCopyButtons(el);
 }
 
@@ -346,6 +459,7 @@ for (const button of tabButtons) {
   });
 }
 
+setupTheme();
 (async () => {
   try {
     if (!data) {

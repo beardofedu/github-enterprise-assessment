@@ -6,6 +6,8 @@ import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { chromium } from "playwright";
+import { assess, loadRubric } from "../src/engine.js";
+import { renderHtml } from "../src/report.js";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const tempDir = mkdtempSync(join(tmpdir(), "gh-assessment-a11y-"));
@@ -83,6 +85,155 @@ async function assertPrimerStyles(page, label) {
   }
 }
 
+async function assertThemeSelector(page, scheme, checkAccessibility = false) {
+  const selector = page.getByLabel("Theme", { exact: true });
+  assert.equal(await selector.inputValue(), "system");
+  assert.deepEqual(await selector.locator("option").allTextContents(), [
+    "System", "Light", "Dark", "High contrast (system)", "Colorblind (system)",
+  ]);
+  const background = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  const settle = () => page.evaluate(async () => {
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await Promise.all(document.getAnimations().filter((animation) => animation instanceof CSSTransition)
+      .map((animation) => animation.finished.catch(() => {})));
+  });
+  const select = async (value) => { await selector.selectOption(value); await settle(); };
+  await select("light");
+  const light = await background();
+  await assertPrimerStyles(page, "Light theme");
+  await select("dark");
+  const dark = await background();
+  assert.notEqual(dark, light);
+  await assertPrimerStyles(page, "Dark theme");
+  await select("colorblind");
+  assert.equal(await page.locator("html").getAttribute("data-light-theme"), "light_colorblind");
+  assert.equal(await page.locator("html").getAttribute("data-dark-theme"), "dark_colorblind");
+  await assertPrimerStyles(page, "Colorblind light");
+  if (checkAccessibility) await axe(page, "Colorblind light");
+  await select("high-contrast");
+  await page.emulateMedia({ colorScheme: "light" });
+  await settle();
+  const contrastLight = await background();
+  await assertPrimerStyles(page, "High contrast light");
+  await page.emulateMedia({ colorScheme: "dark" });
+  await settle();
+  assert.notEqual(await background(), contrastLight);
+  await assertPrimerStyles(page, "High contrast dark");
+  if (checkAccessibility) await axe(page, "High contrast dark");
+  await select("colorblind");
+  await assertPrimerStyles(page, "Colorblind dark");
+  if (checkAccessibility) await axe(page, "Colorblind dark");
+  const savedBackground = await background();
+  await page.reload();
+  await page.locator("#tab-controls tbody tr").first().waitFor({ state: "attached" });
+  assert.equal(await selector.inputValue(), "colorblind");
+  assert.equal(await background(), savedBackground);
+  await select("system");
+  await page.emulateMedia({ colorScheme: "light" });
+  await settle();
+  assert.equal(await background(), light);
+  await page.emulateMedia({ colorScheme: "dark" });
+  await settle();
+  assert.equal(await background(), dark);
+  await page.emulateMedia({ colorScheme: scheme });
+  await settle();
+}
+
+async function assertPillarNavigation(page, assessment) {
+  const controlsTab = page.getByRole("tab", { name: "All controls" });
+  const panel = page.locator("#tab-controls");
+  await controlsTab.click();
+  await page.locator("#f-status").selectOption("");
+  for (const [index, pillar] of assessment.pillars.entries()) {
+    await page.getByRole("tab", { name: "Improvement areas" }).click();
+    const card = page.locator("#summary .pillar-card").nth(index);
+    if (index === 0) await card.click({ position: { x: 4, y: 4 } });
+    else await card.getByRole("button", { name: `View ${pillar.name} controls` }).click();
+    assert.equal(await controlsTab.getAttribute("aria-selected"), "true");
+    assert.equal(await panel.isVisible(), true);
+    assert.equal(await page.locator("#f-pillar").inputValue(), pillar.id);
+    assert.equal(await panel.evaluate((element) => document.activeElement === element), true);
+    assert.equal(await panel.locator("h2").evaluate((heading) => {
+      const rect = heading.getBoundingClientRect();
+      return rect.bottom > 0 && rect.top < window.innerHeight;
+    }), true);
+    assert.deepEqual(
+      await panel.locator("tbody tr td:first-child strong").allTextContents(),
+      assessment.controls.filter((control) => control.pillar === pillar.id).map((control) => control.id),
+    );
+  }
+
+  await page.locator("#f-status").selectOption("fail");
+  await page.getByRole("tab", { name: "Coverage gaps" }).click();
+  const first = assessment.pillars[0];
+  await page.getByRole("button", { name: `View ${first.name} controls` }).focus();
+  await page.keyboard.press("Enter");
+  assert.equal(await controlsTab.getAttribute("aria-selected"), "true");
+  assert.equal(await page.locator("#f-pillar").inputValue(), first.id);
+  assert.equal(await page.locator("#f-status").inputValue(), "fail");
+  assert.deepEqual(
+    await panel.locator("tbody tr td:first-child strong").allTextContents(),
+    assessment.controls.filter((control) => control.pillar === first.id && control.status === "fail").map((control) => control.id),
+  );
+  const second = assessment.pillars[1];
+  await page.getByRole("button", { name: `View ${second.name} controls` }).focus();
+  await page.keyboard.press("Space");
+  assert.equal(await page.locator("#f-pillar").inputValue(), second.id);
+  assert.equal(await panel.evaluate((element) => document.activeElement === element), true);
+
+  const guidance = page.getByRole("link", { name: `${first.name} Well-Architected guidance` });
+  assert.equal(await guidance.getAttribute("href"), first.url);
+  await guidance.evaluate((link) => link.addEventListener("click", (event) => {
+    event.preventDefault();
+    link.dataset.clicked = "true";
+  }, { once: true }));
+  await guidance.click();
+  assert.equal(await guidance.getAttribute("data-clicked"), "true");
+  assert.equal(await page.locator("#f-pillar").inputValue(), second.id);
+}
+
+async function assertFindingDetails(page, assessment, checkAccessibility = false) {
+  const control = (id) => assessment.controls.find((item) => item.id === id);
+  const assertGroup = async (dialog, breakdown, status, title) => {
+    const entries = breakdown.items.filter((item) => item.status === status).sort((a, b) => a.name.localeCompare(b.name));
+    const heading = dialog.getByRole("heading", { name: `${title} (${entries.length})`, exact: true });
+    assert.equal(await heading.isVisible(), true);
+    const section = heading.locator("..");
+    assert.deepEqual(await section.locator("li").allTextContents(), entries.map((item) => `${item.name}${item.note ? ` — ${item.note}` : ""}`));
+  };
+  await page.getByRole("tab", { name: "Improvement areas" }).click();
+  const repoControl = control("SEC-02");
+  const repoFinding = page.locator('#tab-improvements [data-breakdown="SEC-02"]');
+  assert.equal(await repoFinding.textContent(), repoControl.finding);
+  await repoFinding.click();
+  const repoDialog = page.getByRole("dialog", { name: `SEC-02: ${repoControl.title}` });
+  await assertGroup(repoDialog, repoControl.details.breakdown, "pass", "Enabled");
+  await assertGroup(repoDialog, repoControl.details.breakdown, "fail", "Disabled");
+  if (checkAccessibility) await axe(page, "Repository breakdown dialog");
+  await page.keyboard.press("Escape");
+  assert.equal(await repoDialog.isVisible(), false);
+  assert.equal(await repoFinding.evaluate((button) => document.activeElement === button), true);
+
+  await page.getByRole("tab", { name: "All controls" }).click();
+  await page.locator("#f-pillar").selectOption("");
+  await page.locator("#f-status").selectOption("");
+  const orgControl = control("GOV-02");
+  await page.locator('#tab-controls [data-breakdown="GOV-02"]').click();
+  const orgDialog = page.getByRole("dialog", { name: `GOV-02: ${orgControl.title}` });
+  await assertGroup(orgDialog, orgControl.details.breakdown, "pass", "Enabled");
+  await assertGroup(orgDialog, orgControl.details.breakdown, "fail", "Disabled");
+  await orgDialog.getByRole("button", { name: "Close", exact: true }).click();
+
+  const sampleControl = control("COL-01");
+  await page.locator('#tab-controls [data-breakdown="COL-01"]').click();
+  const sampleDialog = page.getByRole("dialog", { name: `COL-01: ${sampleControl.title}` });
+  assert.match(await sampleDialog.textContent(), /Only sampled repositories were assessed/);
+  await assertGroup(sampleDialog, sampleControl.details.breakdown, "unknown", "Not assessed");
+  await sampleDialog.getByRole("button", { name: "Close", exact: true }).click();
+  const manualRow = page.locator("#tab-controls tbody tr").filter({ has: page.locator("strong", { hasText: "GOV-11" }) });
+  assert.equal(await manualRow.locator("[data-breakdown]").count(), 0);
+}
+
 try {
   server = spawn(process.execPath, [
     "bin/gh-waf-assess.js", "serve", "--demo", "--port", String(port), "--answers", answersPath,
@@ -96,13 +247,18 @@ try {
     await page.locator("#tab-controls tbody tr").first().waitFor({ state: "attached" });
     await assertPrimerStyles(page, `Desktop ${colorScheme}`);
     await axe(page, `Desktop ${colorScheme}`);
+    if (colorScheme === "light") await assertThemeSelector(page, colorScheme, true);
+    const assessment = await (await fetch(`${url}/api/assessment`)).json();
+    await assertPillarNavigation(page, assessment);
+    await assertFindingDetails(page, assessment, colorScheme === "light");
 
     await page.getByRole("tab", { name: "Improvement areas" }).click();
     const taskButton = page.locator("#tab-improvements [data-task]").first();
     assert.ok(await taskButton.count(), "improvement areas should have a Download task button");
     await page.getByRole("tab", { name: "All controls" }).click();
-    const controls = await (await fetch(`${url}/api/assessment`)).json();
-    const missingCount = controls.controls.filter((control) => control.status !== "pass" && control.status !== "not_applicable").length;
+    await page.locator("#f-pillar").selectOption("");
+    await page.locator("#f-status").selectOption("");
+    const missingCount = assessment.controls.filter((control) => control.status !== "pass" && control.status !== "not_applicable").length;
     assert.equal(await page.locator("#tab-controls [data-task]").count(), missingCount);
     await page.getByRole("tab", { name: "Improvement areas" }).click();
     const downloadPromise = page.waitForEvent("download");
@@ -123,6 +279,9 @@ try {
     await firstQuestion.locator("textarea").blur();
     await page.locator("#toast").getByText("Answer saved locally.").waitFor();
     await axe(page, `After questionnaire answer ${colorScheme}`);
+    await page.getByRole("button", { name: `View ${assessment.pillars[0].name} controls` }).click();
+    assert.equal(await page.locator("#f-pillar").inputValue(), assessment.pillars[0].id);
+    await page.getByRole("tab", { name: "Questionnaire" }).click();
 
     await page.locator("#answers-file").setInputFiles({
       name: "answers.json",
@@ -160,10 +319,43 @@ try {
     await page.goto(pathToFileURL(reportPath).href);
     await page.locator("#tab-controls tbody tr").first().waitFor({ state: "attached" });
     await assertPrimerStyles(page, `Offline report ${colorScheme}`);
+    if (colorScheme === "light") await assertThemeSelector(page, colorScheme);
+    const assessment = await page.evaluate(() => window.__ASSESSMENT__);
+    await assertPillarNavigation(page, assessment);
+    await assertFindingDetails(page, assessment);
     if (externalRequests.length) throw new Error(`Offline report requested external resources: ${externalRequests.join(", ")}`);
     await page.close();
   }
   console.log("Standalone HTML report: Primer styles applied offline in light and dark themes");
+
+  const blockedStorage = await browser.newPage();
+  await blockedStorage.addInitScript(() => {
+    Object.defineProperty(window, "localStorage", {
+      get() { throw new DOMException("Storage blocked", "SecurityError"); },
+    });
+  });
+  await blockedStorage.goto(url);
+  assert.match(await blockedStorage.locator("#theme-error").textContent(), /could not be loaded/);
+  await blockedStorage.getByLabel("Theme", { exact: true }).selectOption("dark");
+  assert.equal(await blockedStorage.locator("html").getAttribute("data-color-mode"), "dark");
+  assert.match(await blockedStorage.locator("#theme-error").textContent(), /could not save/);
+  await blockedStorage.close();
+
+  const evidence = JSON.parse(readFileSync(new URL("../examples/sample-evidence.json", import.meta.url), "utf8"));
+  for (const org of Object.values(evidence.orgs)) org.settings = { ok: false, error: "Access denied", status: 403 };
+  const gapReportPath = join(tempDir, "gaps.html");
+  writeFileSync(gapReportPath, renderHtml(assess({ rubric: loadRubric(), evidence })));
+  const gaps = await browser.newPage();
+  await gaps.goto(pathToFileURL(gapReportPath).href);
+  await gaps.getByRole("tab", { name: "Coverage gaps" }).click();
+  await gaps.locator('#tab-gaps [data-breakdown="GOV-02"]').click();
+  const gapDialog = gaps.getByRole("dialog", { name: /GOV-02:/ });
+  const unknownHeading = gapDialog.getByRole("heading", { name: "Not assessed (2)" });
+  assert.equal(await unknownHeading.isVisible(), true);
+  assert.deepEqual(await unknownHeading.locator("..").locator("li").allTextContents(), [
+    "octo-platform — Access denied", "octo-retail — Access denied",
+  ]);
+  await gaps.close();
 
   const narrow = await browser.newPage({ viewport: { width: 390, height: 844 }, colorScheme: "light" });
   await narrow.goto(url);
@@ -189,6 +381,18 @@ try {
   if (!(await narrow.getByRole("tab", { name: "All controls" }).evaluate((tab) => tab.getAttribute("aria-selected") === "true"))) {
     throw new Error("Arrow-key navigation between assessment tabs failed.");
   }
+  await narrow.locator('#tab-controls [data-breakdown="SEC-02"]').click();
+  const narrowDialog = narrow.getByRole("dialog", { name: /SEC-02:/ });
+  const dialogSize = await narrowDialog.evaluate((dialog) => {
+    dialog.scrollTop = dialog.scrollHeight;
+    const bounds = dialog.getBoundingClientRect();
+    const header = dialog.querySelector(".finding-details-header").getBoundingClientRect();
+    return { client: dialog.clientWidth, scroll: dialog.scrollWidth, top: bounds.top, headerTop: header.top, headerBottom: header.bottom, bottom: bounds.bottom };
+  });
+  assert.ok(dialogSize.scroll <= dialogSize.client + 1, "breakdown must reflow within a narrow dialog");
+  assert.ok(dialogSize.headerTop >= dialogSize.top && dialogSize.headerBottom <= dialogSize.bottom, "breakdown close button must remain visible while scrolling");
+  await axe(narrow, "Narrow breakdown dialog");
+  await narrow.keyboard.press("Escape");
   await axe(narrow, "Narrow viewport");
   console.log("Skip link, tab keyboard navigation, and 390px reflow: passed");
 } finally {

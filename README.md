@@ -72,17 +72,21 @@ node bin/gh-waf-assess.js rubric
 
 Pass, partial, and fail are scored as 1, 0.5, and 0, weighted by control importance. Unknown, unanswered, and not-applicable controls are excluded from scores; coverage shows the percentage of applicable controls that were scored. A high score with low coverage is not a complete assessment. The maturity labels are Initial (<40), Developing (40–59.9), Defined (60–74.9), Managed (75–89.9), and Optimized (90–100).
 
+Select a pillar summary card to open All controls filtered to that pillar. Any existing status filter is retained; the card's guidance link opens the Well-Architected checklist.
+
+Select an automated finding to see its collected repository or organization results. Unavailable settings and unsampled repositories are marked as not assessed; the list identifies truncated or unavailable inventories.
+
 To customize controls or scoring, copy `rubric/well-architected.json` and pass `--rubric path/to/rubric.json`. New automated controls also require a matching check implementation in `src/checks.js`.
 
 Use **Download task** on a finding or coverage gap to export a Markdown implementation task with its recommendation, references, and a review checklist. The dashboard and collector are read-only and do not change GitHub settings; follow [`docs/implementation-guide.md`](docs/implementation-guide.md) and review the [daily official updates digest](docs/official-updates.md) before applying changes. A scheduled GitHub Actions workflow refreshes that digest from the GitHub Docs source repository, Changelog, and Blog each day.
 
 ## Privacy
 
-The dashboard binds to loopback and the collector only makes read-only GitHub API requests. Evidence, answers, and exported reports can contain sensitive enterprise configuration and assessor notes; keep them secure and do not commit them. Default output filenames are ignored by Git, but custom output paths may not be.
+The dashboard binds to loopback and the collector only makes read-only GitHub API requests. Evidence, answers, assessment JSON, and exported reports can contain repository and organization names, sensitive enterprise configuration, and assessor notes; keep them secure and do not commit them. Default output filenames are ignored by Git, but custom output paths may not be.
 
 ## Primer and accessibility
 
-The dashboard uses locally served Primer CSS, Primer component styles and color tokens, semantic landmarks and headings, labeled form controls, visible keyboard focus, responsive layouts, and accessible status and tab interactions. Its accessibility test checks Primer styling and header contrast in both themes, including offline HTML reports. It also runs axe after saving a questionnaire answer and at a narrow viewport, and checks keyboard navigation. Automated checks are guardrails, not a substitute for human review with keyboard-only interaction, browser zoom, VoiceOver/Safari, and NVDA/Chrome.
+The dashboard uses locally served Primer CSS, Primer component styles and color tokens, semantic landmarks and headings, labeled form controls, visible keyboard focus, responsive layouts, and accessible status and tab interactions. Use the header selector to choose System, Light, Dark, High contrast, or Colorblind; the browser saves this preference locally when available. The selector is also available in exported HTML reports. Its accessibility test checks Primer styling and header contrast, including offline HTML reports. It also runs axe after saving a questionnaire answer and at a narrow viewport, and checks keyboard navigation. Automated checks are guardrails, not a substitute for human review with keyboard-only interaction, browser zoom, VoiceOver/Safari, and NVDA/Chrome.
 
 ## Development
 

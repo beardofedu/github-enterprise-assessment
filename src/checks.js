@@ -15,7 +15,7 @@ function orgEntries(evidence) {
 }
 
 /** Evaluates fn per organization and rolls the results into one enterprise-wide status. */
-export function perOrg(evidence, key, fn, label) {
+export function perOrg(evidence, key, fn, label, labels = {}) {
   const orgs = orgEntries(evidence);
   if (!orgs.length) return result('unknown', 'No organizations were collected.');
   const outcomes = [];
@@ -30,10 +30,22 @@ export function perOrg(evidence, key, fn, label) {
     if (r.status === 'unknown') unknown.push({ org: name, reason: r.note || 'not determinable' });
     else outcomes.push({ org: name, ...r });
   }
+  const details = {
+    orgs: outcomes,
+    unknown,
+    breakdown: {
+      kind: 'organization',
+      labels,
+      items: [
+        ...outcomes.map(({ org, status, note }) => ({ name: org, status, note })),
+        ...unknown.map(({ org, reason }) => ({ name: org, status: 'unknown', note: reason })),
+      ],
+    },
+  };
   const assessed = outcomes.filter((o) => o.status !== 'not_applicable');
   if (!assessed.length) {
-    if (outcomes.length) return result('not_applicable', `Not applicable to the collected organizations (${outcomes.map((o) => o.note).filter(Boolean)[0] || 'no relevant configuration'}).`, { orgs: outcomes });
-    return result('unknown', `Could not evaluate ${label}: ${unknown[0]?.reason || 'no data'}.`, { unknown });
+    if (outcomes.length) return result('not_applicable', `Not applicable to the collected organizations (${outcomes.map((o) => o.note).filter(Boolean)[0] || 'no relevant configuration'}).`, details);
+    return result('unknown', `Could not evaluate ${label}: ${unknown[0]?.reason || 'no data'}.`, details);
   }
   const avg = assessed.reduce((s, o) => s + SCORE[o.status], 0) / assessed.length;
   const status = avg === 1 ? 'pass' : avg === 0 ? 'fail' : 'partial';
@@ -42,7 +54,7 @@ export function perOrg(evidence, key, fn, label) {
   let finding = `${passing} of ${assessed.length} organizations meet ${label}.`;
   if (gaps.length) finding += ` Gaps: ${listSome(gaps)}.`;
   if (unknown.length) finding += ` Not assessed: ${listSome(unknown.map((u) => u.org))}.`;
-  return result(status, finding, { orgs: outcomes, unknown, score: avg });
+  return result(status, finding, { ...details, score: avg });
 }
 
 function activeRepos(evidence) {
@@ -70,26 +82,56 @@ export function coverage(ratio, { pass, partial }) {
   return ratio >= pass ? 'pass' : ratio >= partial ? 'partial' : 'fail';
 }
 
-function repoCoverage(evidence, predicate, { label, pass = 0.9, partial = 0.5, requireSecurity = false }) {
+function repoCoverage(evidence, predicate, { label, pass = 0.9, partial = 0.5, requireSecurity = false, labels = {} }) {
   const { repos, unavailable, truncated } = activeRepos(evidence);
   const scoped = requireSecurity ? repos.filter((r) => r.security_and_analysis) : repos;
+  const items = repos.map((repo) => {
+    const name = `${repo.org}/${repo.name}`;
+    if (requireSecurity && !repo.security_and_analysis) return { name, status: 'unknown', note: 'Security settings were not returned; excluded from the score.' };
+    const matches = predicate(repo);
+    if (matches == null) return { name, status: 'unknown', note: 'Feature status was not returned; counted as not enabled in the score.' };
+    return { name, status: matches ? 'pass' : 'fail' };
+  });
+  const details = { unavailable, breakdown: { kind: 'repository', labels, items, unavailable, truncated } };
   if (!scoped.length) {
     const why = requireSecurity && repos.length ? 'repository security settings were not returned (the token needs admin access to repositories)' : 'no active repositories were collected';
-    return result('unknown', `Could not evaluate ${label}: ${why}.`, { unavailable });
+    return result('unknown', `Could not evaluate ${label}: ${why}.`, details);
   }
-  const matching = scoped.filter(predicate).length;
+  const matching = items.filter((item) => item.status === 'pass').length;
   const ratio = matching / scoped.length;
   let finding = `${matching} of ${scoped.length} active repositories (${pct(ratio)}) ${label}.`;
   if (truncated) finding += ' Repository inventory was truncated by --max-repos.';
-  return result(coverage(ratio, { pass, partial }), finding, { matching, total: scoped.length, ratio });
+  return result(coverage(ratio, { pass, partial }), finding, { ...details, matching, total: scoped.length, ratio });
 }
 
 function sampleCoverage(evidence, field, predicate, { label, pass, partial }) {
-  const sample = sampledRepos(evidence).filter((r) => r[field]?.ok);
-  if (!sample.length) return result('unknown', `Could not evaluate ${label}: no repository sample was collected.`);
-  const matching = sample.filter((r) => predicate(r[field].data)).length;
-  const ratio = matching / sample.length;
-  return result(coverage(ratio, { pass, partial }), `${matching} of ${sample.length} sampled active repositories (${pct(ratio)}) ${label}.`, { matching, total: sample.length, ratio });
+  const { repos, unavailable, truncated } = activeRepos(evidence);
+  const sampled = sampledRepos(evidence);
+  const key = (repo) => `${repo.org}/${repo.name}`;
+  const samples = new Map(sampled.map((repo) => [key(repo), repo]));
+  const inventory = new Map(repos.map((repo) => [key(repo), repo]));
+  for (const repo of sampled) if (!inventory.has(key(repo))) inventory.set(key(repo), repo);
+  const items = [...inventory].map(([name, repo]) => {
+    const sample = samples.get(name);
+    if (!sample) {
+      const sampleProbe = evidence.orgs?.[repo.org]?.repoSample;
+      const note = sampleProbe?.ok ? 'Not included in the repository sample.' : `Repository sample unavailable: ${sampleProbe?.error || 'not collected'}`;
+      return { name, status: 'unknown', note };
+    }
+    if (!sample[field]?.ok) return { name, status: 'unknown', note: sample[field]?.error || 'Check was not collected.' };
+    return { name, status: predicate(sample[field].data) ? 'pass' : 'fail' };
+  });
+  const details = { breakdown: { kind: 'repository', items, unavailable, truncated, sampled: true } };
+  const assessed = sampled.filter((r) => r[field]?.ok);
+  if (!assessed.length) return result('unknown', `Could not evaluate ${label}: no repository sample was collected.`, details);
+  const matching = assessed.filter((r) => predicate(r[field].data)).length;
+  const ratio = matching / assessed.length;
+  return result(coverage(ratio, { pass, partial }), `${matching} of ${assessed.length} sampled active repositories (${pct(ratio)}) ${label}.`, { ...details, matching, total: assessed.length, ratio });
+}
+
+function securityEnabled(repo, field) {
+  const status = repo.security_and_analysis?.[field]?.status;
+  return status === 'enabled' ? true : status === 'disabled' ? false : null;
 }
 
 function enterpriseProbe(evidence, key, fn, label) {
@@ -124,7 +166,7 @@ export const checks = {
     const e = ev.enterprise;
     if (e?.twoFactor?.ok && e.twoFactor.data === 'ENABLED') return result('pass', 'The enterprise requires two-factor authentication for all organizations.');
     if (e?.oidc?.ok && e.oidc.data) return result('pass', 'Authentication (including MFA) is delegated to the OIDC identity provider.');
-    return perOrg(ev, 'settings', (s) => (s.two_factor_requirement_enabled == null ? { status: 'unknown', note: 'requires org owner' } : { status: s.two_factor_requirement_enabled ? 'pass' : 'fail' }), 'the two-factor authentication requirement');
+    return perOrg(ev, 'settings', (s) => (s.two_factor_requirement_enabled == null ? { status: 'unknown', note: 'requires org owner' } : { status: s.two_factor_requirement_enabled ? 'pass' : 'fail' }), 'the two-factor authentication requirement', { pass: 'Enabled', fail: 'Disabled' });
   },
   'GOV-03': (ev) =>
     enterpriseProbe(ev, 'auditLogStreams', (streams) => {
@@ -153,9 +195,9 @@ export const checks = {
       if (n <= 5) return { status: 'pass' };
       return { status: n <= 10 ? 'partial' : 'fail', note: `${n} owners` };
     }, 'an owner count of five or fewer'),
-  'SEC-01': (ev) => repoCoverage(ev, (r) => r.security_and_analysis?.secret_scanning?.status === 'enabled', { label: 'have secret scanning enabled', requireSecurity: true }),
-  'SEC-02': (ev) => repoCoverage(ev, (r) => r.security_and_analysis?.secret_scanning_push_protection?.status === 'enabled', { label: 'have push protection enabled', requireSecurity: true }),
-  'SEC-03': (ev) => repoCoverage(ev, (r) => r.security_and_analysis?.dependabot_security_updates?.status === 'enabled', { label: 'have Dependabot security updates enabled', requireSecurity: true }),
+  'SEC-01': (ev) => repoCoverage(ev, (r) => securityEnabled(r, 'secret_scanning'), { label: 'have secret scanning enabled', requireSecurity: true, labels: { pass: 'Enabled', fail: 'Disabled' } }),
+  'SEC-02': (ev) => repoCoverage(ev, (r) => securityEnabled(r, 'secret_scanning_push_protection'), { label: 'have push protection enabled', requireSecurity: true, labels: { pass: 'Enabled', fail: 'Disabled' } }),
+  'SEC-03': (ev) => repoCoverage(ev, (r) => securityEnabled(r, 'dependabot_security_updates'), { label: 'have Dependabot security updates enabled', requireSecurity: true, labels: { pass: 'Enabled', fail: 'Disabled' } }),
   'SEC-04': (ev) =>
     perOrg(ev, 'securityConfigurations', (configs, _name, org) => {
       const withCodeScanning = configs.filter((c) => c.code_scanning_default_setup === 'enabled');
