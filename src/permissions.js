@@ -4,9 +4,10 @@ const ENDPOINT_SCOPES = [
   [/^\/enterprises\/[^/]+\/audit-log/, ['read:audit_log']],
   [/^\/enterprises\//, ['read:enterprise']],
   [/^\/orgs\/[^/]+\/actions\//, ['admin:org']],
-  [/^\/orgs\/[^/]+\/copilot\//, ['manage_billing:copilot']],
+  [/^\/orgs\/[^/]+\/copilot\//, ['read:org']],
   [/^\/orgs\/[^/]+\/(dependabot|secret-scanning|code-scanning)\//, ['security_events']],
   [/^\/repos\//, ['repo']],
+  [/^\/orgs\/[^/]+\/code-security\/configurations\/defaults$/, ['write:org']],
   [/^\/(orgs|user)\//, ['read:org']],
 ];
 
@@ -16,7 +17,9 @@ const OWNER_ROLE = /must be an? (org(anization)? )?(admin|owner)|must be an admi
 export function hostForApiUrl(apiUrl) {
   if (!apiUrl || apiUrl === 'https://api.github.com') return 'github.com';
   const url = new URL(apiUrl);
-  return url.hostname.replace(/^api\./, '');
+  return url.hostname === 'api.github.com' || /^api\..+\.ghe\.com$/.test(url.hostname)
+    ? url.hostname.slice(4)
+    : url.hostname;
 }
 
 const refreshCommand = (scopes, apiUrl) => `gh auth refresh -h ${hostForApiUrl(apiUrl)} -s ${scopes.join(',')}`;
@@ -28,7 +31,7 @@ function scopesForPath(path) {
 
 /** Returns { scopes, command, requiresOwner } when a finding reports a scope-related access failure, otherwise null. */
 export function accessRemediation(finding, apiUrl) {
-  if (!finding) return null;
+  if (!finding || /API rate limit exceeded|secondary rate limit/i.test(finding)) return null;
   const scopes = new Set();
   for (const [, path] of finding.matchAll(DENIED)) scopesForPath(path).forEach((s) => scopes.add(s));
   // GraphQL reports missing scopes explicitly, e.g. "requires one of the following scopes: ['read:enterprise']".
@@ -40,7 +43,7 @@ export function accessRemediation(finding, apiUrl) {
   return {
     scopes: list,
     command: refreshCommand(list, apiUrl),
-    requiresOwner: OWNER_ROLE.test(finding) || /admin access/.test(finding),
+    requiresOwner: OWNER_ROLE.test(finding),
   };
 }
 
