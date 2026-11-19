@@ -98,22 +98,22 @@ try {
     await axe(page, `Desktop ${colorScheme}`);
 
     await page.getByRole("tab", { name: "Improvement areas" }).click();
-    const implement = page.locator("#tab-improvements [data-implement]").first();
-    assert.ok(await implement.count(), "missing items should have an Implement button");
+    const taskButton = page.locator("#tab-improvements [data-task]").first();
+    assert.ok(await taskButton.count(), "improvement areas should have a Download task button");
     await page.getByRole("tab", { name: "All controls" }).click();
     const controls = await (await fetch(`${url}/api/assessment`)).json();
     const missingCount = controls.controls.filter((control) => control.status !== "pass" && control.status !== "not_applicable").length;
-    assert.equal(await page.locator("#tab-controls [data-implement]").count(), missingCount);
+    assert.equal(await page.locator("#tab-controls [data-task]").count(), missingCount);
     await page.getByRole("tab", { name: "Improvement areas" }).click();
     const downloadPromise = page.waitForEvent("download");
-    await implement.click();
+    await taskButton.click();
     const download = await downloadPromise;
     assert.match(download.suggestedFilename(), /^[a-z0-9-]+-implementation\.md$/);
     const stream = await download.createReadStream();
     let task = "";
     for await (const chunk of stream) task += chunk.toString();
     assert.match(task, /^# Implement /);
-    assert.match(task, /This plan is generated locally/);
+    assert.match(task, /This is a manual task export; downloading it does not change GitHub settings\./);
     assert.ok(await page.locator("#tab-improvements a[href='/implementation-guide']").count());
 
     await page.getByRole("tab", { name: "Questionnaire" }).click();

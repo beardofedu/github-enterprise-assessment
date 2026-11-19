@@ -3,7 +3,6 @@ import { readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
 import { assess, normalizeAnswer } from './engine.js';
 import { renderHtml, renderMarkdown } from './report.js';
 import { readPrimerCss } from './web-assets.js';
-import { implementOrganizationSetting } from './implementations.js';
 
 const TEMPLATE_URL = new URL('./web/index.html', import.meta.url);
 const IMPLEMENTATION_GUIDE_URL = new URL('../docs/implementation-guide.md', import.meta.url);
@@ -97,7 +96,7 @@ function readBody(req) {
   });
 }
 
-export function createServer({ rubric, evidence, answersPath, port, implementationFetch }) {
+export function createServer({ rubric, evidence, answersPath, port }) {
   const primerCss = readPrimerCss();
   let answers = loadAnswers(answersPath);
   const allowedHosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`]);
@@ -157,34 +156,6 @@ export function createServer({ rubric, evidence, answersPath, port, implementati
         answers = { ...answers, [control.id]: normalized };
         if (answersPath) saveAnswers(answersPath, answers);
         return send(res, 200, JSON.stringify(current()), 'application/json');
-      }
-      if (req.method === 'POST' && url.pathname === '/api/implement') {
-        if (!String(req.headers['content-type']).startsWith('application/json')) return send(res, 415, 'Expected application/json', 'text/plain');
-        let body;
-        try {
-          body = JSON.parse(await readBody(req));
-        } catch (err) {
-          if (!(err instanceof SyntaxError)) throw err;
-          return send(res, 400, 'Invalid implementation request', 'text/plain');
-        }
-        if (!body || body.confirmed !== true || typeof body.controlId !== 'string' || typeof body.organization !== 'string' || typeof body.token !== 'string') {
-          return send(res, 400, 'Explicit confirmation, control, organization, and implementation token are required.', 'text/plain');
-        }
-        const assessment = current();
-        const control = assessment.controls.find((item) => item.id === body.controlId);
-        const orgResult = control?.details?.orgs?.find((item) => item.org === body.organization);
-        if (!['fail', 'partial'].includes(control?.status) || !['fail', 'partial'].includes(orgResult?.status)
-          || !assessment.meta.organizations.includes(body.organization)) {
-          return send(res, 409, 'Only a confirmed failing or partial organization finding can be implemented.', 'text/plain');
-        }
-        const result = await implementOrganizationSetting({
-          controlId: body.controlId,
-          organization: body.organization,
-          token: body.token,
-          apiUrl: evidence.meta?.apiUrl,
-          fetchImpl: implementationFetch,
-        });
-        return send(res, 200, JSON.stringify(result), 'application/json');
       }
       return send(res, 404, 'Not found', 'text/plain');
     } catch (err) {

@@ -135,7 +135,7 @@ test('dashboard server persists answers and rejects foreign hosts and non-JSON p
     assert.match(guide.headers.get('content-type'), /text\/html/);
     const guideHtml = await guide.text();
     assert.match(guideHtml, /Assessment dashboard/);
-    assert.match(guideHtml, /Assessment collection and questionnaire answers remain read-only/);
+    assert.match(guideHtml, /dashboard actions are read-only with respect to GitHub settings/);
     assert.match(guideHtml, /href="\/official-updates"/);
     const updates = await fetch(`${base}/official-updates`);
     assert.equal(updates.status, 200);
@@ -165,54 +165,22 @@ test('dashboard server persists answers and rejects foreign hosts and non-JSON p
   }
 });
 
-test('implementation requires confirmation, a supported failing organization, and a separate token', async (t) => {
-  const dir = mkdtempSync(join(tmpdir(), 'waf-implement-'));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
+test('sample evidence cannot trigger GitHub setting writes', async (t) => {
   const rubric = loadRubric();
-  const evidence = {
-    meta: { organizations: ['acme'], apiUrl: 'https://api.test' },
-    orgs: {
-      acme: {
-        settings: { ok: true, data: { default_repository_permission: 'write', members_can_create_public_repositories: true } },
-      },
-    },
-  };
-  const calls = [];
-  let settings = { default_repository_permission: 'write', members_can_create_public_repositories: true };
-  const implementationFetch = async (url, init) => {
-    calls.push({ method: init.method, path: new URL(url).pathname, body: init.body, authorization: init.headers.Authorization });
-    if (init.method === 'PATCH') settings = { ...settings, ...JSON.parse(init.body) };
-    return { ok: true, status: 200, json: async () => ({ ...settings }) };
-  };
+  const evidence = { meta: { sample: true, organizations: ['acme'] }, orgs: {} };
   const portProbe = http.createServer();
   await new Promise((resolve) => portProbe.listen(0, '127.0.0.1', resolve));
   const { port } = portProbe.address();
   await new Promise((resolve) => portProbe.close(resolve));
-  const server = createServer({ rubric, evidence, answersPath: join(dir, 'answers.json'), port, implementationFetch });
+  const server = createServer({ rubric, evidence, port });
   await new Promise((resolve) => server.listen(port, '127.0.0.1', resolve));
   t.after(() => new Promise((resolve) => server.close(resolve)));
-  const request = (body) => fetch(`http://127.0.0.1:${port}/api/implement`, {
+  const response = await fetch(`http://127.0.0.1:${port}/api/implement`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ controlId: 'GOV-05', organization: 'acme', token: 'test-token', confirmed: true }),
   });
-
-  assert.equal((await request({ controlId: 'GOV-05', organization: 'acme', token: 'test-token' })).status, 400);
-  assert.equal((await request({ controlId: 'GOV-01', organization: 'acme', token: 'test-token', confirmed: true })).status, 409);
-  assert.equal((await request({ controlId: 'GOV-05', organization: 'other', token: 'test-token', confirmed: true })).status, 409);
-  assert.equal(calls.length, 0);
-
-  const applied = await request({ controlId: 'GOV-05', organization: 'acme', token: 'test-token', confirmed: true });
-  assert.equal(applied.status, 200);
-  assert.match((await applied.json()).message, /Updated GOV-05 for acme/);
-  assert.deepEqual(calls.map((call) => call.method), ['GET', 'PATCH']);
-  assert.deepEqual(JSON.parse(calls[1].body), { default_repository_permission: 'read' });
-  assert.ok(calls[0].authorization.startsWith('Bearer '));
-
-  calls.length = 0;
-  const publicRepoSetting = await request({ controlId: 'GOV-06', organization: 'acme', token: 'test-token', confirmed: true });
-  assert.equal(publicRepoSetting.status, 200);
-  assert.deepEqual(JSON.parse(calls[1].body), { members_can_create_public_repositories: false });
+  assert.equal(response.status, 404);
 });
 
 test('dashboard imports answers atomically, preserves other answers, and reloads them on startup', async (t) => {
