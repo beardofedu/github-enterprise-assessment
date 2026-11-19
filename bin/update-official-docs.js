@@ -11,7 +11,8 @@ const SOURCES = [
 ];
 
 function decodeEntities(value) {
-  return value.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+  const entities = { '&amp;': '&', '&quot;': '"', '&#39;': "'", '&apos;': "'", '&lt;': '<', '&gt;': '>' };
+  return value.replace(/&(?:amp|quot|#39|apos|lt|gt);/g, (entity) => entities[entity]);
 }
 
 function parseFeed(xml) {
