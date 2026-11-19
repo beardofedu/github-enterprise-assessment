@@ -130,6 +130,17 @@ test('dashboard server persists answers and rejects foreign hosts and non-JSON p
     assert.equal(stylesheet.status, 200);
     assert.match(stylesheet.headers.get('content-type'), /text\/css/);
     assert.match(await stylesheet.text(), /\.UnderlineNav/);
+    const guide = await fetch(`${base}/implementation-guide`);
+    assert.equal(guide.status, 200);
+    assert.match(guide.headers.get('content-type'), /text\/html/);
+    const guideHtml = await guide.text();
+    assert.match(guideHtml, /Assessment dashboard/);
+    assert.match(guideHtml, /dashboard actions are read-only with respect to GitHub settings/);
+    assert.match(guideHtml, /href="\/official-updates"/);
+    const updates = await fetch(`${base}/official-updates`);
+    assert.equal(updates.status, 200);
+    assert.match(updates.headers.get('content-type'), /text\/html/);
+    assert.match(await updates.text(), /Official GitHub updates/);
 
     const post = await fetch(`${base}/api/answers`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: 'GOV-11', answer: 'yes', notes: 'quarterly' }) });
     assert.equal(post.status, 200);
@@ -152,6 +163,24 @@ test('dashboard server persists answers and rejects foreign hosts and non-JSON p
   } finally {
     real.close();
   }
+});
+
+test('sample evidence cannot trigger GitHub setting writes', async (t) => {
+  const rubric = loadRubric();
+  const evidence = { meta: { sample: true, organizations: ['acme'] }, orgs: {} };
+  const portProbe = http.createServer();
+  await new Promise((resolve) => portProbe.listen(0, '127.0.0.1', resolve));
+  const { port } = portProbe.address();
+  await new Promise((resolve) => portProbe.close(resolve));
+  const server = createServer({ rubric, evidence, port });
+  await new Promise((resolve) => server.listen(port, '127.0.0.1', resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  const response = await fetch(`http://127.0.0.1:${port}/api/implement`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ controlId: 'GOV-05', organization: 'acme', token: 'test-token', confirmed: true }),
+  });
+  assert.equal(response.status, 404);
 });
 
 test('dashboard imports answers atomically, preserves other answers, and reloads them on startup', async (t) => {

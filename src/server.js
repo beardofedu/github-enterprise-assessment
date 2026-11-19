@@ -5,7 +5,69 @@ import { renderHtml, renderMarkdown } from './report.js';
 import { readPrimerCss } from './web-assets.js';
 
 const TEMPLATE_URL = new URL('./web/index.html', import.meta.url);
+const IMPLEMENTATION_GUIDE_URL = new URL('../docs/implementation-guide.md', import.meta.url);
+const OFFICIAL_UPDATES_URL = new URL('../docs/official-updates.md', import.meta.url);
 const MAX_BODY = 64 * 1024;
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+}
+
+function renderMarkdownPage(markdown, title) {
+  const inline = (text) => {
+    let html = '';
+    let last = 0;
+    const links = /\[([^\]]+)\]\(([^)]+)\)/g;
+    for (const match of text.matchAll(links)) {
+      html += escapeHtml(text.slice(last, match.index));
+      let href = null;
+      if (match[2] === 'official-updates.md') href = '/official-updates';
+      else {
+        try {
+          const parsed = new URL(match[2]);
+          if (parsed.protocol === 'https:') href = parsed.href;
+        } catch { /* leave unsupported links as text */ }
+      }
+      html += href
+        ? `<a href="${escapeHtml(href)}"${href.startsWith('https:') ? ' target="_blank" rel="noopener"' : ''}>${escapeHtml(match[1])}</a>`
+        : escapeHtml(match[1]);
+      last = match.index + match[0].length;
+    }
+    return html + escapeHtml(text.slice(last));
+  };
+  const blocks = [];
+  let listType = null;
+  const closeList = () => {
+    if (listType) blocks.push(`</${listType}>`);
+    listType = null;
+  };
+  const lines = markdown.split(/\r?\n/).filter((line) => !['<!-- official-updates:start -->', '<!-- official-updates:end -->'].includes(line.trim()));
+  for (const line of lines) {
+    const heading = line.match(/^(#{1,3})\s+(.+)$/);
+    const unordered = line.match(/^\s*[-*]\s+(.+)$/);
+    const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
+    if (!line.trim()) {
+      closeList();
+    } else if (heading) {
+      closeList();
+      const level = heading[1].length;
+      blocks.push(`<h${level}>${inline(heading[2])}</h${level}>`);
+    } else if (unordered || ordered) {
+      const type = unordered ? 'ul' : 'ol';
+      if (type !== listType) {
+        closeList();
+        blocks.push(`<${type}>`);
+        listType = type;
+      }
+      blocks.push(`<li>${inline((unordered || ordered)[1])}</li>`);
+    } else {
+      closeList();
+      blocks.push(`<p>${inline(line)}</p>`);
+    }
+  }
+  closeList();
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title><style>body{font:16px/1.6 system-ui,sans-serif;max-width:60rem;margin:2rem auto;padding:0 1rem;color:#1f2328}a{color:#0969da}nav{display:flex;gap:1rem;border-bottom:1px solid #d1d9e0;padding-bottom:1rem}li{margin:.35rem 0}main{padding-top:1rem}</style></head><body><nav><a href="/">Assessment dashboard</a><a href="/implementation-guide">Implementation guide</a><a href="/official-updates">Official updates</a></nav><main><h1>${escapeHtml(title)}</h1>${blocks.join('\n')}</main></body></html>`;
+}
 
 export function loadAnswers(path) {
   if (!path || !existsSync(path)) return {};
@@ -51,6 +113,8 @@ export function createServer({ rubric, evidence, answersPath, port }) {
     try {
       if (req.method === 'GET' && url.pathname === '/') return send(res, 200, readFileSync(TEMPLATE_URL, 'utf8'), 'text/html; charset=utf-8');
       if (req.method === 'GET' && url.pathname === '/primer.css') return send(res, 200, primerCss, 'text/css; charset=utf-8');
+      if (req.method === 'GET' && url.pathname === '/implementation-guide') return send(res, 200, renderMarkdownPage(readFileSync(IMPLEMENTATION_GUIDE_URL, 'utf8'), 'Implementation guide'), 'text/html; charset=utf-8');
+      if (req.method === 'GET' && url.pathname === '/official-updates') return send(res, 200, renderMarkdownPage(readFileSync(OFFICIAL_UPDATES_URL, 'utf8'), 'Official GitHub updates'), 'text/html; charset=utf-8');
       if (req.method === 'GET' && url.pathname === '/api/assessment') return send(res, 200, JSON.stringify(current()), 'application/json');
       if (req.method === 'GET' && url.pathname === '/api/report.md') return send(res, 200, renderMarkdown(current()), 'text/markdown; charset=utf-8');
       if (req.method === 'GET' && url.pathname === '/api/report.html') return send(res, 200, renderHtml(current(), primerCss), 'text/html; charset=utf-8');

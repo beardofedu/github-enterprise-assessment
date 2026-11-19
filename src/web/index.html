@@ -28,6 +28,10 @@
   .q-options label { display: inline-flex; align-items: center; gap: .25rem; margin-right: .75rem; }
   .q textarea { min-height: 4rem; width: min(100%, 48rem); }
   .remediation { margin-top: .375rem; }
+  .implementation-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: .5rem; }
+  dialog { max-width: min(36rem, calc(100vw - 2rem)); border: 1px solid var(--borderColor-default); border-radius: .5rem; color: var(--fgColor-default); background: var(--bgColor-default); }
+  dialog::backdrop { background: rgb(31 35 40 / 60%); }
+  .implementation-form { display: grid; gap: .75rem; }
   details summary { cursor: pointer; color: var(--fgColor-muted); }
   :focus-visible { outline: 2px solid var(--focus-outlineColor); outline-offset: 2px; }
   #toast, #save-error, #load-error { position: fixed; z-index: 10; right: 1rem; bottom: 1rem; max-width: calc(100vw - 2rem); }
@@ -81,8 +85,58 @@ const pill = (status) => {
 };
 const pillarName = (id) => data.pillars.find((p) => p.id === id)?.name || id;
 const refs = (list) => (list || []).map((u) => `<a href="${esc(u)}" rel="noopener">Well-Architected guidance</a>`).join(' · ');
+const implementationGuideLink = () => STATIC ? '' : '<a href="/implementation-guide">Implementation guide</a>';
+const documentationLink = (list) => {
+  const url = (list || []).find((ref) => {
+    try { return new URL(ref).protocol === 'https:'; } catch { return false; }
+  });
+  return url ? `<a href="${esc(url)}" target="_blank" rel="noopener">Documentation</a>` : '';
+};
 const scoreProgress = (label, score) => score == null ? '<p class="color-fg-muted">Score not available</p>'
   : `<progress class="ScoreProgress" max="100" value="${score}" aria-label="${esc(label)} score: ${score} percent"></progress>`;
+
+function downloadTask(control) {
+    const links = (control.references || []).filter((url) => {
+      try { return new URL(url).protocol === 'https:'; } catch { return false; }
+    });
+    const markdown = [
+      `# Implement ${control.id}: ${control.title}`,
+      '',
+      `- **Status:** ${control.status}`,
+      `- **Finding:** ${control.finding}`,
+      '',
+      '## Recommended change',
+      '',
+      control.remediation || 'Review the control guidance and define an appropriate implementation.',
+      '',
+      '## References',
+      '',
+      ...(links.length ? links.map((url) => `- ${url}`) : ['- No external references were provided for this control.']),
+      '',
+      '## Completion',
+      '',
+      '- [ ] Review the recommendation and confirm it fits the enterprise environment.',
+      '- [ ] Apply the approved configuration or process change.',
+      '- [ ] Re-run the assessment and verify the result.',
+      '',
+      'This is a manual task export; downloading it does not change GitHub settings.',
+      '',
+    ].join('\n');
+    const file = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(file);
+    link.download = `${control.id.toLowerCase()}-implementation.md`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+
+function bindImplementationActions(el) {
+  el.querySelectorAll('[data-task]').forEach((button) => button.addEventListener('click', () => {
+    const control = data.controls.find((item) => item.id === button.dataset.task);
+    if (!control) return;
+    downloadTask(control);
+  }));
+}
 
 function renderSummary() {
   const m = data.meta, o = data.overall;
@@ -104,10 +158,15 @@ function renderSummary() {
 function renderImprovements() {
   const el = document.getElementById('tab-improvements');
   if (!data.improvements.length) { el.innerHTML = '<h2 class="h3">Improvement areas</h2><p class="color-fg-muted">No improvement areas identified among assessed controls.</p>'; return; }
-  el.innerHTML = `<h2 class="h3">Improvement areas</h2><p class="color-fg-muted">Ranked by priority (control weight × gap). Address High severity failures first.</p><div class="table-wrap" role="region" aria-label="Improvement areas table" tabindex="0"><table><thead><tr><th scope="col">#</th><th scope="col">Control</th><th scope="col">Pillar</th><th scope="col">Status</th><th scope="col">Severity</th><th scope="col">Finding &amp; recommendation</th></tr></thead><tbody>${
-    data.improvements.map((c, i) => `<tr><td>${i + 1}</td><td><strong>${esc(c.id)}</strong><br>${esc(c.title)}</td><td>${esc(pillarName(c.pillar))}<br><span class="color-fg-muted text-small">${esc(c.area)}</span></td><td>${pill(c.status)}</td><td><span class="Label ${c.severity === 'High' ? 'Label--danger' : c.severity === 'Medium' ? 'Label--attention' : 'Label--secondary'}">${esc(c.severity)}</span></td>
-      <td>${esc(c.finding)}<div class="remediation"><strong>Recommendation:</strong> ${esc(c.remediation)}</div><div class="text-small">${refs(c.references)}</div></td></tr>`).join('')
-  }</tbody></table></div>`;
+  const rows = data.improvements.map((c, i) => {
+    return `<tr><td>${i + 1}</td><td><strong>${esc(c.id)}</strong><br>${esc(c.title)}</td><td>${esc(pillarName(c.pillar))}<br><span class="color-fg-muted text-small">${esc(c.area)}</span></td><td>${pill(c.status)}</td><td><span class="Label ${c.severity === 'High' ? 'Label--danger' : c.severity === 'Medium' ? 'Label--attention' : 'Label--secondary'}">${esc(c.severity)}</span></td>
+      <td>${esc(c.finding)}<div class="remediation"><strong>Recommendation:</strong> ${esc(c.remediation)}</div><div class="implementation-actions">
+        <button class="btn btn-sm" type="button" data-task="${esc(c.id)}" aria-label="Download task for ${esc(c.id)}: ${esc(c.title)}">Download task</button>
+        <span class="color-fg-muted text-small">Manual implementation or task export only</span>
+        ${documentationLink(c.references)} ${implementationGuideLink()}</div></td></tr>`;
+  }).join('');
+  el.innerHTML = `<h2 class="h3">Improvement areas</h2><p class="color-fg-muted">Ranked by priority (control weight × gap). Address High severity failures first. The dashboard only downloads tasks and never changes GitHub settings.</p><div class="table-wrap" role="region" aria-label="Improvement areas table" tabindex="0"><table><thead><tr><th scope="col">#</th><th scope="col">Control</th><th scope="col">Pillar</th><th scope="col">Status</th><th scope="col">Severity</th><th scope="col">Finding &amp; recommendation</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  bindImplementationActions(el);
 }
 
 function renderControls() {
@@ -121,8 +180,12 @@ function renderControls() {
     <span class="color-fg-muted" id="control-count" role="status" aria-live="polite">${rows.length} controls</span></div>
     <div class="table-wrap" role="region" aria-label="Controls table" tabindex="0"><table><thead><tr><th scope="col">Control</th><th scope="col">Pillar / area</th><th scope="col">Type</th><th scope="col">Weight</th><th scope="col">Status</th><th scope="col">Finding</th></tr></thead><tbody>${
     rows.map((c) => `<tr><td><strong>${esc(c.id)}</strong><br>${esc(c.title)}</td><td>${esc(pillarName(c.pillar))}<br><span class="color-fg-muted text-small">${esc(c.area)}</span></td><td>${esc(c.source)}</td><td>${c.weight}</td><td>${pill(c.status)}</td>
-      <td>${esc(c.finding)}${c.notes ? `<div class="text-small color-fg-muted">Notes: ${esc(c.notes)}</div>` : ''}<details><summary>Recommendation</summary>${esc(c.remediation)}<div class="text-small">${refs(c.references)}</div></details></td></tr>`).join('')
+      <td>${esc(c.finding)}${c.notes ? `<div class="text-small color-fg-muted">Notes: ${esc(c.notes)}</div>` : ''}<details><summary>Recommendation</summary>${esc(c.remediation)}<div class="text-small">${refs(c.references)}</div></details>
+        ${c.status === 'pass' || c.status === 'not_applicable' ? '' : `<div class="implementation-actions"><button class="btn btn-sm" type="button" data-task="${esc(c.id)}" aria-label="Download task for ${esc(c.id)}: ${esc(c.title)}">Download task</button>
+        <span class="color-fg-muted text-small">Manual implementation or task export only</span>
+        ${documentationLink(c.references)} ${implementationGuideLink()}</div>`}</td></tr>`).join('')
   }</tbody></table></div>`;
+  bindImplementationActions(el);
   for (const id of ['f-pillar', 'f-status']) {
     el.querySelector(`#${id}`).addEventListener('change', () => {
       renderControls();
@@ -180,7 +243,14 @@ function renderGaps() {
   if (!data.coverageGaps.length) { el.innerHTML = '<h2 class="h3">Coverage gaps</h2><p class="color-fg-muted">Every applicable control has been assessed.</p>'; return; }
   el.innerHTML = `<h2 class="h3">Coverage gaps</h2><p class="color-fg-muted">These controls are excluded from scores until evidence is available. Grant the token more scopes, re-run collection, or answer them in the questionnaire.</p>
     <div class="table-wrap" role="region" aria-label="Coverage gaps table" tabindex="0"><table><thead><tr><th scope="col">Control</th><th scope="col">Pillar</th><th scope="col">Status</th><th scope="col">Reason</th></tr></thead><tbody>${
-    data.coverageGaps.map((g) => `<tr><td><strong>${esc(g.id)}</strong><br>${esc(g.title)}</td><td>${esc(pillarName(g.pillar))}</td><td>${pill(g.status)}</td><td>${esc(g.finding)}</td></tr>`).join('')}</tbody></table></div>`;
+    data.coverageGaps.map((g) => {
+      const control = data.controls.find((item) => item.id === g.id);
+      return `<tr><td><strong>${esc(g.id)}</strong><br>${esc(g.title)}</td><td>${esc(pillarName(g.pillar))}</td><td>${pill(g.status)}</td><td>${esc(g.finding)}
+        <div class="implementation-actions"><button class="btn btn-sm" type="button" data-task="${esc(g.id)}" aria-label="Download task for ${esc(g.id)}: ${esc(g.title)}">Download task</button>
+        <span class="color-fg-muted text-small">Manual evidence review or task export only</span>
+        ${documentationLink(control?.references)} ${implementationGuideLink()}</div></td></tr>`;
+    }).join('')}</tbody></table></div>`;
+  bindImplementationActions(el);
 }
 
 function renderActions() {
