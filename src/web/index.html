@@ -176,7 +176,20 @@ function downloadTask(control) {
       `- **Status:** ${control.status}`,
       `- **Finding:** ${control.finding}`,
       '',
-      ...(access ? ['## Grant token access', '', 'Add the missing scopes to the GitHub CLI token, then re-run collection:', '', '```sh', access.command, '```', ''] : []),
+      ...(access ? [
+        '## Grant token access',
+        '',
+        'Add the missing scopes to the GitHub CLI token, then re-run collection:',
+        '',
+        '```sh',
+        access.command,
+        '```',
+        '',
+        ...(access.requiresRepositoryAdmin ? ['The authenticated account must also have repository administrator access.'] : []),
+        ...(access.requiresOwner ? ['The authenticated account must also be an organization owner (or have the matching fine-grained permission).'] : []),
+        ...(access.requiresSecurityManager ? ['The authenticated account must also have the security manager role.'] : []),
+        ...((access.requiresRepositoryAdmin || access.requiresOwner || access.requiresSecurityManager) ? [''] : []),
+      ] : []),
       '## Recommended change',
       '',
       control.remediation || 'Review the control guidance and define an appropriate implementation.',
@@ -404,7 +417,7 @@ function accessHelp(access, intro) {
   if (!access) return '';
   return `<div class="remediation"><strong>${intro}</strong> add the <code>${access.scopes.map(esc).join('</code>, <code>')}</code> scope${access.scopes.length > 1 ? 's' : ''} to your GitHub CLI token, then re-run collection.
     ${copyCommand(access.command, 'gh auth refresh command')}
-    <p class="color-fg-muted text-small mb-0">${access.requiresOwner ? 'The authenticated account must also be an organization owner (or have the matching fine-grained permission). ' : ''}If <code>GH_TOKEN</code> or <code>GITHUB_TOKEN</code> is set, it takes precedence over the gh CLI token; update that token instead or unset it.</p></div>`;
+    <p class="color-fg-muted text-small mb-0">${access.requiresRepositoryAdmin ? 'The authenticated account must also have repository administrator access. ' : ''}${access.requiresOwner ? 'The authenticated account must also be an organization owner (or have the matching fine-grained permission). ' : ''}${access.requiresSecurityManager ? 'The authenticated account must also have the security manager role. ' : ''}If <code>GH_TOKEN</code> or <code>GITHUB_TOKEN</code> is set, it takes precedence over the gh CLI token; update that token instead or unset it.</p></div>`;
 }
 
 function bindCopyButtons(el) {

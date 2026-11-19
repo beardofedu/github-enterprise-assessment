@@ -171,7 +171,27 @@ test('access-denied coverage gaps avoid double periods and include a gh auth ref
   const a = assess({ rubric, evidence });
   const gap = a.coverageGaps.find((g) => g.id === 'ARC-01');
   assert.equal(gap.finding, `Could not evaluate scoped self-hosted runner groups: ${error}`);
-  assert.deepEqual(gap.access, { scopes: ['admin:org'], command: 'gh auth refresh -h acme.ghe.com -s admin:org', requiresOwner: true });
+  assert.deepEqual(gap.access, {
+    scopes: ['admin:org'],
+    command: 'gh auth refresh -h acme.ghe.com -s admin:org',
+    requiresOwner: true,
+    requiresRepositoryAdmin: false,
+    requiresSecurityManager: false,
+  });
   assert.match(a.coverageAccess.command, /^gh auth refresh -h acme\.ghe\.com -s .*admin:org/);
   assert.match(renderMarkdown(a), /```sh\ngh auth refresh -h acme\.ghe\.com -s /);
+});
+
+test('repository-security access gaps identify repository administrator prerequisites', () => {
+  const error = 'repository security settings were not returned (the token needs admin access to repositories)';
+  const evidence = { meta: { apiUrl: 'https://api.github.com' }, orgs: { acme: {
+    repos: { ok: true, data: { truncated: false, items: [{ name: 'private-repo' }] } },
+    repoSecurity: { ok: false, error, status: 403 },
+  } } };
+  const a = assess({ rubric, evidence });
+  const gap = a.coverageGaps.find((item) => item.id === 'SEC-01');
+  assert.equal(gap.access.requiresRepositoryAdmin, true);
+  assert.equal(gap.access.requiresOwner, false);
+  assert.equal(gap.access.requiresSecurityManager, false);
+  assert.match(renderMarkdown(a), /must also have repository administrator access/);
 });

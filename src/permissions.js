@@ -12,7 +12,9 @@ const ENDPOINT_SCOPES = [
 ];
 
 const DENIED = /GET (\/\S+) -> (401|403)\b/g;
-const OWNER_ROLE = /must be an? (org(anization)? )?(admin|owner)|must be an administrator|security manager/i;
+const OWNER_ROLE = /must be an? (org(anization)? )?(admin|owner)|must be an administrator/i;
+const REPOSITORY_ADMIN_ROLE = /admin access to repositories|repository administrator|repository admin/i;
+const SECURITY_MANAGER_ROLE = /security manager/i;
 
 export function hostForApiUrl(apiUrl) {
   if (!apiUrl || apiUrl === 'https://api.github.com') return 'github.com';
@@ -48,6 +50,8 @@ export function accessRemediation(finding, apiUrl) {
     scopes: list,
     command: refreshCommand(list, apiUrl),
     requiresOwner: OWNER_ROLE.test(finding),
+    requiresRepositoryAdmin: REPOSITORY_ADMIN_ROLE.test(finding),
+    requiresSecurityManager: SECURITY_MANAGER_ROLE.test(finding),
   };
 }
 
@@ -55,12 +59,16 @@ export function accessRemediation(finding, apiUrl) {
 export function combinedAccessRemediation(gaps, apiUrl) {
   const scopes = new Set();
   let requiresOwner = false;
+  let requiresRepositoryAdmin = false;
+  let requiresSecurityManager = false;
   for (const g of gaps) {
     if (!g.access) continue;
     g.access.scopes.forEach((s) => scopes.add(s));
     requiresOwner ||= g.access.requiresOwner;
+    requiresRepositoryAdmin ||= g.access.requiresRepositoryAdmin;
+    requiresSecurityManager ||= g.access.requiresSecurityManager;
   }
   if (!scopes.size) return null;
   const list = [...scopes].sort();
-  return { scopes: list, command: refreshCommand(list, apiUrl), requiresOwner };
+  return { scopes: list, command: refreshCommand(list, apiUrl), requiresOwner, requiresRepositoryAdmin, requiresSecurityManager };
 }

@@ -234,6 +234,37 @@ async function assertFindingDetails(page, assessment, checkAccessibility = false
   assert.equal(await manualRow.locator("[data-breakdown]").count(), 0);
 }
 
+async function assertRepositoryAdminGuidance(page, assessment) {
+  const next = structuredClone(assessment);
+  const control = next.controls.find((item) => item.id === "SEC-01");
+  control.status = "unknown";
+  control.finding = "Repository security settings were not returned.";
+  const access = {
+    scopes: ["repo"],
+    command: "gh auth refresh -h github.com -s repo",
+    requiresOwner: false,
+    requiresRepositoryAdmin: true,
+    requiresSecurityManager: false,
+  };
+  next.coverageGaps = [{ id: control.id, pillar: control.pillar, title: control.title, status: control.status, finding: control.finding, access }];
+  next.coverageAccess = access;
+  await page.evaluate((nextData) => { data = nextData; renderGaps(); }, next);
+  await page.getByRole("tab", { name: "Coverage gaps" }).click();
+  const gaps = page.locator("#tab-gaps");
+  assert.match(await gaps.textContent(), /repository administrator access/);
+  assert.doesNotMatch(await gaps.textContent(), /organization owner/);
+
+  const downloadPromise = page.waitForEvent("download");
+  await gaps.locator("[data-task]").click();
+  const download = await downloadPromise;
+  const stream = await download.createReadStream();
+  let task = "";
+  for await (const chunk of stream) task += chunk.toString();
+  assert.match(task, /must also have repository administrator access/);
+  assert.doesNotMatch(task, /organization owner/);
+  await page.evaluate((original) => { data = original; renderGaps(); }, assessment);
+}
+
 try {
   server = spawn(process.execPath, [
     "bin/gh-waf-assess.js", "serve", "--demo", "--port", String(port), "--answers", answersPath,
@@ -251,6 +282,7 @@ try {
     const assessment = await (await fetch(`${url}/api/assessment`)).json();
     await assertPillarNavigation(page, assessment);
     await assertFindingDetails(page, assessment, colorScheme === "light");
+    if (colorScheme === "light") await assertRepositoryAdminGuidance(page, assessment);
 
     await page.getByRole("tab", { name: "Improvement areas" }).click();
     const taskButton = page.locator("#tab-improvements [data-task]").first();
