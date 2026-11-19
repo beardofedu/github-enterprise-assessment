@@ -37,6 +37,8 @@ export function renderMarkdown(a) {
     lines.push(`- **Status:** ${STATUS_ICON[c.status]} ${c.status} · **Severity:** ${c.severity} · **Priority:** ${c.priority}`);
     lines.push(`- **Finding:** ${c.finding}`);
     lines.push(`- **Recommendation:** ${c.remediation}`);
+    if (c.benefits) lines.push(`- **Why implement it:** ${c.benefits}`);
+    if (c.considerations) lines.push(`- **Considerations / when it may not fit:** ${c.considerations}`);
     if (c.references?.length) lines.push(`- **Guidance:** ${c.references.map((r) => `<${r}>`).join(', ')}`);
     lines.push('');
   });

@@ -203,3 +203,13 @@ test('repository-security access gaps identify repository administrator prerequi
   assert.equal(gap.access.requiresSecurityManager, false);
   assert.match(renderMarkdown(a), /must also have repository administrator access/);
 });
+
+test('improvement areas explain why to implement each recommendation and when it may not fit', () => {
+  for (const c of rubric.controls) assert.ok(c.benefits && c.considerations, `${c.id} has benefits and considerations`);
+  const a = assess({ rubric, evidence: sample });
+  const gov03 = a.improvements.find((c) => c.id === 'GOV-03');
+  assert.equal(gov03.benefits, byId(a, 'GOV-03').benefits);
+  const md = renderMarkdown(a);
+  assert.ok(md.includes(`- **Why implement it:** ${gov03.benefits}`));
+  assert.ok(md.includes(`- **Considerations / when it may not fit:** ${gov03.considerations}`));
+});
