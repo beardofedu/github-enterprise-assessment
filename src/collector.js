@@ -77,17 +77,31 @@ function slimRepo(r) {
   };
 }
 
-export async function collectOrg(client, org, { sampleSize = 25, maxRepos = 1000, concurrency = 4 } = {}) {
+function organizationSettings(s) {
+  return {
+    two_factor_requirement_enabled: s?.two_factor_requirement_enabled ?? null,
+    default_repository_permission: s?.default_repository_permission ?? null,
+    members_can_create_public_repositories: s?.members_can_create_public_repositories ?? null,
+    plan: s?.plan?.name ?? null,
+  };
+}
+
+function estimateRequestCount(orgList, repositoryCounts, { enterprise, sampleSize, maxRepos }) {
+  const estimate = (enterprise ? 5 : 0) + (orgList.length ? Math.ceil(orgList.length / 100) : 0) + orgList.reduce((total, org) => {
+    const knownCount = repositoryCounts[org];
+    const boundedCount = Math.min(knownCount ?? maxRepos, maxRepos);
+    const repoPages = Math.max(1, Math.ceil(boundedCount / 100));
+    const sampledRepos = Math.min(sampleSize, knownCount ?? sampleSize);
+    return total + 16 + repoPages + (sampledRepos * 2);
+  }, 0);
+  return Math.max(1, estimate);
+}
+
+export async function collectOrg(client, org, { sampleSize = 25, maxRepos = 1000, concurrency = 4, orgInfo } = {}) {
   const o = encodeURIComponent(org);
-  const settings = probe(async () => {
-    const s = await client.get(`/orgs/${o}`);
-    return {
-      two_factor_requirement_enabled: s.two_factor_requirement_enabled ?? null,
-      default_repository_permission: s.default_repository_permission ?? null,
-      members_can_create_public_repositories: s.members_can_create_public_repositories ?? null,
-      plan: s.plan?.name ?? null,
-    };
-  });
+  const settings = orgInfo
+    ? Promise.resolve(orgInfo.ok ? { ...orgInfo, data: organizationSettings(orgInfo.data) } : orgInfo)
+    : probe(async () => organizationSettings(await client.get(`/orgs/${o}`)));
   const rulesets = probe(async () => {
     const { items } = await client.paginate(`/orgs/${o}/rulesets?per_page=100`, { max: 50 });
     return mapLimit(items, concurrency, async (rs) => {
@@ -199,7 +213,7 @@ export class EnterpriseUnavailableError extends Error {
   }
 }
 
-export async function collect({ token, apiUrl, enterprise, orgs, tokenOrgFallback = false, sampleSize = 25, maxRepos = 1000, log = () => {}, fetchImpl } = {}) {
+export async function collect({ token, apiUrl, enterprise, orgs, tokenOrgFallback = false, sampleSize = 25, maxRepos = 1000, durationMinutes = null, log = () => {}, fetchImpl } = {}) {
   const client = new GitHubClient({ token, apiUrl, fetchImpl });
   let orgList = orgs?.length ? orgs : null;
   let orgDiscovery = { ok: true, source: 'cli' };
@@ -223,12 +237,39 @@ export async function collect({ token, apiUrl, enterprise, orgs, tokenOrgFallbac
     if (!orgDiscovery.error) orgDiscovery = { ok: mine.ok, source: 'user', error: mine.error };
   }
 
+  const repositoryCounts = Object.fromEntries(orgList.map((org) => [org, null]));
+  if (durationMinutes) {
+    const preliminaryEstimate = estimateRequestCount(orgList, repositoryCounts, { enterprise, sampleSize, maxRepos });
+    client.setRequestIntervalMs(Math.ceil(durationMinutes * 60_000 / preliminaryEstimate));
+  }
+  const orgInfo = {};
+  for (const org of orgList) {
+    log(`Checking repository footprint for '${org}'...`);
+    orgInfo[org] = await probe(() => client.get(`/orgs/${encodeURIComponent(org)}`));
+  }
+  for (const org of orgList) {
+    const data = orgInfo[org].ok ? orgInfo[org].data : null;
+    repositoryCounts[org] = data && Number.isInteger(data.public_repos) && Number.isInteger(data.total_private_repos)
+      ? data.public_repos + data.total_private_repos
+      : null;
+  }
+  const unknownRepositoryCounts = Object.entries(repositoryCounts).filter(([, count]) => count === null).map(([org]) => org);
+  const knownRepositoryCount = Object.values(repositoryCounts).reduce((total, count) => total + (count ?? 0), 0);
+  const estimatedRequestCount = estimateRequestCount(orgList, repositoryCounts, { enterprise, sampleSize, maxRepos });
+  log(`Footprint: ${orgList.length} organization(s), ${unknownRepositoryCounts.length ? `${knownRepositoryCount} known repositories (${unknownRepositoryCounts.length} organization count(s) unavailable)` : `${knownRepositoryCount} repositories`}.`);
+  log(`Estimated minimum API requests: ${estimatedRequestCount}. To spread requests at about one per second, rerun with --duration ${Math.max(1, Math.ceil(estimatedRequestCount / 60))} (minutes).`);
+  const requestIntervalMs = durationMinutes
+    ? Math.ceil(durationMinutes * 60_000 / estimatedRequestCount)
+    : 0;
+  client.setRequestIntervalMs(requestIntervalMs);
+  if (requestIntervalMs) log(`Pacing requests for approximately ${durationMinutes} minute(s).`);
+
   const enterpriseEvidence = enterprise ? (log('Collecting enterprise settings...'), await collectEnterprise(client, enterprise)) : null;
 
   const orgEvidence = {};
   for (const org of orgList) {
     log(`Collecting organization '${org}'...`);
-    orgEvidence[org] = await collectOrg(client, org, { sampleSize, maxRepos });
+    orgEvidence[org] = await collectOrg(client, org, { sampleSize, maxRepos, orgInfo: orgInfo[org] });
   }
 
   return {
@@ -239,6 +280,14 @@ export async function collect({ token, apiUrl, enterprise, orgs, tokenOrgFallbac
       enterprise: enterprise || null,
       organizations: orgList,
       orgDiscovery,
+      footprint: {
+        organizations: orgList.length,
+        repositories: unknownRepositoryCounts.length ? null : knownRepositoryCount,
+        knownRepositories: knownRepositoryCount,
+        organizationsWithUnknownRepositoryCount: unknownRepositoryCounts,
+      },
+      estimatedRequestCount,
+      requestIntervalMs,
       sampleSize,
       maxRepos,
       requestCount: client.requestCount,

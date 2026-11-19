@@ -3,7 +3,7 @@ import http from 'node:http';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { collect, EnterpriseUnavailableError } from '../src/collector.js';
-import { graphqlUrlFor } from '../src/github-client.js';
+import { GitHubClient, graphqlUrlFor } from '../src/github-client.js';
 import { createServer } from '../src/server.js';
 import { loadRubric } from '../src/engine.js';
 import { copyFileSync, cpSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
@@ -32,22 +32,34 @@ function mockFetch(routes, calls = []) {
 
 test('collector discovers orgs, paginates, and isolates denied endpoints', async () => {
   const calls = [];
+  const logs = [];
   const routes = {
     graphql: (q) => {
       if (q.includes('organizations')) return { body: { data: { enterprise: { organizations: { nodes: [{ login: 'acme' }], pageInfo: { hasNextPage: false, endCursor: null } } } } } };
       if (q.includes('samlIdentityProvider')) return { body: { data: { enterprise: { ownerInfo: { samlIdentityProvider: { id: 'x' } } } } } };
       return { body: { errors: [{ message: 'Field not available' }] } };
     },
-    '/orgs/acme': { body: { two_factor_requirement_enabled: true, default_repository_permission: 'read', members_can_create_public_repositories: false } },
+    '/orgs/acme': { body: { public_repos: 2, total_private_repos: 1, two_factor_requirement_enabled: true, default_repository_permission: 'read', members_can_create_public_repositories: false } },
     '/orgs/acme/repos': { body: [{ name: 'r1', archived: false, fork: false, pushed_at: new Date().toISOString(), description: 'd', visibility: 'private' }], link: '<https://api.test/orgs/acme/repos?page=2>; rel="next"' },
     '/orgs/acme/repos?page=2': { body: [{ name: 'r2', archived: true, fork: false, pushed_at: null, visibility: 'private' }] },
     '/orgs/acme/members': { status: 403, body: { message: 'Resource not accessible' } },
     '/repos/acme/r1/codeowners/errors': { body: { errors: [] } },
     '/repos/acme/r1/actions/workflows': { body: { total_count: 2 } },
   };
-  const ev = await collect({ token: 't', apiUrl: 'https://api.test', enterprise: 'acme-ent', fetchImpl: mockFetch(routes, calls) });
+  const ev = await collect({ token: 't', apiUrl: 'https://api.test', enterprise: 'acme-ent', durationMinutes: 0.001, fetchImpl: mockFetch(routes, calls), log: (msg) => logs.push(msg) });
 
   assert.deepEqual(ev.meta.organizations, ['acme']);
+  assert.deepEqual(ev.meta.footprint, {
+    organizations: 1,
+    repositories: 3,
+    knownRepositories: 3,
+    organizationsWithUnknownRepositoryCount: [],
+  });
+  assert.ok(ev.meta.estimatedRequestCount > ev.meta.requestCount);
+  assert.ok(ev.meta.requestIntervalMs > 0);
+  assert.ok(logs.some((msg) => /Pacing requests for approximately/.test(msg)));
+  assert.ok(logs.some((msg) => /Footprint: 1 organization\(s\), 3 repositories/.test(msg)));
+  assert.equal(calls.filter((call) => call.path === '/orgs/acme').length, 1, 'preflight metadata is reused during collection');
   assert.equal(ev.enterprise.saml.ok, true);
   assert.equal(ev.enterprise.saml.data, true);
   assert.equal(ev.enterprise.twoFactor.ok, false);
@@ -59,6 +71,27 @@ test('collector discovers orgs, paginates, and isolates denied endpoints', async
   assert.deepEqual(org.repoSample.data, [{ name: 'r1', codeowners: { ok: true, data: true }, workflows: { ok: true, data: 2 } }]);
   assert.equal(org.communityFiles.data.securityPolicy, false);
   assert.ok(calls.every((c) => c.method === 'GET' || c.path === '/graphql'), 'only read operations are issued');
+});
+
+test('GitHub client spaces concurrent request starts when configured', async () => {
+  const started = [];
+  const client = new GitHubClient({
+    token: 't',
+    apiUrl: 'https://api.test',
+    requestIntervalMs: 20,
+    fetchImpl: async () => {
+      started.push(Date.now());
+      return { ok: true, status: 200, headers: { get: () => null }, json: async () => ({}) };
+    },
+  });
+
+  await Promise.all([client.get('/first'), client.get('/second')]);
+  client.setRequestIntervalMs(30);
+  await client.get('/third');
+
+  assert.equal(started.length, 3);
+  assert.ok(started[1] - started[0] >= 15);
+  assert.ok(started[2] - started[1] >= 25);
 });
 
 test('collector stops when the enterprise is unavailable unless token-org fallback is allowed', async () => {

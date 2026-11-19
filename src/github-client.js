@@ -26,13 +26,31 @@ export class GitHubError extends Error {
 
 /** Minimal read-only GitHub REST/GraphQL client (GET + GraphQL queries only). */
 export class GitHubClient {
-  constructor({ token, apiUrl = 'https://api.github.com', fetchImpl = globalThis.fetch } = {}) {
+  constructor({ token, apiUrl = 'https://api.github.com', fetchImpl = globalThis.fetch, requestIntervalMs = 0 } = {}) {
     if (!token) throw new Error('A GitHub token is required (set GH_TOKEN/GITHUB_TOKEN or run `gh auth login`).');
     this.token = token;
     this.apiUrl = apiUrl.replace(/\/+$/, '');
     this.graphqlUrl = graphqlUrlFor(this.apiUrl);
     this.fetch = fetchImpl;
     this.requestCount = 0;
+    this.requestIntervalMs = requestIntervalMs;
+    this.nextRequestAt = 0;
+    this.lastRequestAt = null;
+  }
+
+  setRequestIntervalMs(intervalMs) {
+    this.requestIntervalMs = intervalMs;
+    if (this.lastRequestAt !== null) {
+      this.nextRequestAt = Math.max(this.nextRequestAt, this.lastRequestAt + intervalMs);
+    }
+  }
+
+  async waitForRequestSlot() {
+    const now = Date.now();
+    const startsAt = Math.max(now, this.nextRequestAt);
+    this.nextRequestAt = startsAt + this.requestIntervalMs;
+    if (startsAt > now) await new Promise((resolve) => setTimeout(resolve, startsAt - now));
+    this.lastRequestAt = startsAt;
   }
 
   headers() {
@@ -46,6 +64,7 @@ export class GitHubClient {
 
   async request(pathOrUrl) {
     const url = pathOrUrl.startsWith('http') ? pathOrUrl : `${this.apiUrl}${pathOrUrl}`;
+    await this.waitForRequestSlot();
     this.requestCount++;
     const res = await this.fetch(url, { headers: this.headers() });
     if (!res.ok) {
@@ -85,6 +104,7 @@ export class GitHubClient {
   }
 
   async graphql(query, variables = {}) {
+    await this.waitForRequestSlot();
     this.requestCount++;
     const res = await this.fetch(this.graphqlUrl, {
       method: 'POST',
