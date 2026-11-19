@@ -67,10 +67,10 @@
       "title": "Two-factor authentication is required",
       "type": "automated",
       "weight": 3,
-      "description": "Requiring 2FA (or delegating it to an IdP) protects accounts from credential stuffing and phishing.",
-      "remediation": "Enable the enterprise policy that requires two-factor authentication for all organizations, or enforce MFA through your identity provider.",
+      "description": "Requiring 2FA protects accounts from credential stuffing and phishing.",
+      "remediation": "Enable the enterprise policy that requires two-factor authentication for all organizations. For Enterprise Managed Users, enforce MFA through your identity provider.",
       "benefits": "Stolen passwords alone can no longer compromise accounts that hold source code, secrets, and deployment access.",
-      "considerations": "Members without 2FA are removed from organizations when the policy is enforced, so communicate and audit first. If all users authenticate through SAML/OIDC with IdP-enforced MFA, GitHub 2FA may be redundant for those accounts.",
+      "considerations": "With SAML SSO and personal accounts, users still sign in to GitHub separately, so IdP MFA does not replace GitHub 2FA. Enterprise Managed Users can rely on IdP-enforced MFA. When the policy is enforced, members without 2FA retain their organization membership and seats but lose access; outside collaborators are removed. Communicate and audit first.",
       "references": ["https://learn.github.com/well-architected/library/application-security/checklist/"]
     },
     {
@@ -96,7 +96,7 @@
       "description": "Restricting access to known network ranges reduces the blast radius of leaked credentials.",
       "remediation": "Enable the enterprise IP allow list (or your IdP's conditional access policy) for corporate network ranges and approved GitHub Apps.",
       "benefits": "Stolen credentials or tokens cannot be used from outside approved networks, limiting the blast radius of credential leaks.",
-      "considerations": "Remote workers, GitHub-hosted runners, Codespaces, and third-party integrations need explicit allowances; misconfiguration can block legitimate work. Teams with strong IdP conditional access may get similar protection with less upkeep.",
+      "considerations": "Remote workers, GitHub-hosted runners, and third-party integrations may need explicit allowances; misconfiguration can block legitimate work. Enabling an organization IP allow list prevents Codespaces use for that organization's repositories, and adding Codespaces IP addresses does not preserve access. Teams with strong IdP conditional access may get similar protection with less upkeep.",
       "references": ["https://learn.github.com/well-architected/library/application-security/checklist/"]
     },
     {

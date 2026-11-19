@@ -206,6 +206,9 @@ test('repository-security access gaps identify repository administrator prerequi
 
 test('improvement areas explain why to implement each recommendation and when it may not fit', () => {
   for (const c of rubric.controls) assert.ok(c.benefits && c.considerations, `${c.id} has benefits and considerations`);
+  assert.match(byId({ controls: rubric.controls }, 'GOV-02').considerations, /personal accounts.*IdP MFA does not replace GitHub 2FA/i);
+  assert.match(byId({ controls: rubric.controls }, 'GOV-02').considerations, /members.*retain their organization membership and seats but lose access; outside collaborators are removed/i);
+  assert.match(byId({ controls: rubric.controls }, 'GOV-04').considerations, /prevents Codespaces use.*adding Codespaces IP addresses does not preserve access/i);
   const a = assess({ rubric, evidence: sample });
   const gov03 = a.improvements.find((c) => c.id === 'GOV-03');
   assert.equal(gov03.benefits, byId(a, 'GOV-03').benefits);
