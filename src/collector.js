@@ -91,7 +91,7 @@ function estimateRequestCount(orgList, repositoryCounts, { enterprise, sampleSiz
     const knownCount = repositoryCounts[org];
     const boundedCount = Math.min(knownCount ?? maxRepos, maxRepos);
     const repoPages = Math.max(1, Math.ceil(boundedCount / 100));
-    const sampledRepos = Math.min(sampleSize, knownCount ?? sampleSize);
+    const sampledRepos = Math.min(sampleSize, boundedCount);
     return total + 16 + repoPages + (sampledRepos * 2);
   }, 0);
   return Math.max(1, estimate);
@@ -215,6 +215,7 @@ export class EnterpriseUnavailableError extends Error {
 
 export async function collect({ token, apiUrl, enterprise, orgs, tokenOrgFallback = false, sampleSize = 25, maxRepos = 1000, durationMinutes = null, log = () => {}, fetchImpl } = {}) {
   const client = new GitHubClient({ token, apiUrl, fetchImpl });
+  if (durationMinutes) client.setRequestIntervalMs(1000);
   let orgList = orgs?.length ? orgs : null;
   let orgDiscovery = { ok: true, source: 'cli' };
 

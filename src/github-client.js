@@ -34,23 +34,31 @@ export class GitHubClient {
     this.fetch = fetchImpl;
     this.requestCount = 0;
     this.requestIntervalMs = requestIntervalMs;
-    this.nextRequestAt = 0;
     this.lastRequestAt = null;
+    this.requestQueue = Promise.resolve();
   }
 
   setRequestIntervalMs(intervalMs) {
     this.requestIntervalMs = intervalMs;
-    if (this.lastRequestAt !== null) {
-      this.nextRequestAt = Math.max(this.nextRequestAt, this.lastRequestAt + intervalMs);
-    }
   }
 
-  async waitForRequestSlot() {
-    const now = Date.now();
-    const startsAt = Math.max(now, this.nextRequestAt);
-    this.nextRequestAt = startsAt + this.requestIntervalMs;
-    if (startsAt > now) await new Promise((resolve) => setTimeout(resolve, startsAt - now));
-    this.lastRequestAt = startsAt;
+  async startRequest(fetchRequest) {
+    const previousRequest = this.requestQueue;
+    let release;
+    this.requestQueue = new Promise((resolve) => { release = resolve; });
+    await previousRequest;
+    try {
+      while (this.lastRequestAt !== null) {
+        const delay = this.lastRequestAt + this.requestIntervalMs - Date.now();
+        if (delay <= 0) break;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+      this.lastRequestAt = Date.now();
+      this.requestCount++;
+      return fetchRequest();
+    } finally {
+      release();
+    }
   }
 
   headers() {
@@ -64,9 +72,7 @@ export class GitHubClient {
 
   async request(pathOrUrl) {
     const url = pathOrUrl.startsWith('http') ? pathOrUrl : `${this.apiUrl}${pathOrUrl}`;
-    await this.waitForRequestSlot();
-    this.requestCount++;
-    const res = await this.fetch(url, { headers: this.headers() });
+    const res = await this.startRequest(() => this.fetch(url, { headers: this.headers() }));
     if (!res.ok) {
       let detail = '';
       try {
@@ -104,13 +110,11 @@ export class GitHubClient {
   }
 
   async graphql(query, variables = {}) {
-    await this.waitForRequestSlot();
-    this.requestCount++;
-    const res = await this.fetch(this.graphqlUrl, {
+    const res = await this.startRequest(() => this.fetch(this.graphqlUrl, {
       method: 'POST',
       headers: { ...this.headers(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ query, variables }),
-    });
+    }));
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new GitHubError(`GraphQL -> ${res.status}: ${body.message || ''}`, res.status);
     if (body.errors?.length) throw new GitHubError(`GraphQL: ${body.errors.map((e) => e.message).join('; ')}`);
