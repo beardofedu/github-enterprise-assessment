@@ -1,38 +1,41 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-color-mode="auto" data-light-theme="light" data-dark-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Use GitHub Enterprise Assessment to collect read-only evidence, complete a questionnaire, and prioritize improvements.">
   <title>User guide | GitHub Enterprise Assessment</title>
+  <link rel="stylesheet" href="primer.css">
   <link rel="stylesheet" href="site.css">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
-  <header>
-    <nav aria-label="Main navigation">
-      <a class="brand" href="index.html">GitHub Enterprise Assessment</a>
-      <a href="index.html" aria-current="page">User guide</a>
-      <a href="changelog.html">Changelog</a>
-      <a href="https://github.com/beardofedu/github-enterprise-assessment">Source on GitHub</a>
+  <header class="Header flex-wrap px-3 px-md-5">
+    <nav class="d-flex flex-wrap flex-items-center width-full" aria-label="Main navigation">
+      <div class="Header-item Header-item--full"><a class="Header-link f4 d-flex flex-items-center" href="index.html"><svg class="octicon mr-2" height="24" width="24" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"></path></svg>GitHub Enterprise Assessment</a></div>
+      <div class="Header-item"><a class="Header-link" href="index.html" aria-current="page">User guide</a></div>
+      <div class="Header-item"><a class="Header-link" href="changelog.html">Changelog</a></div>
+      <div class="Header-item mr-0"><a class="Header-link" href="https://github.com/beardofedu/github-enterprise-assessment">Source on GitHub</a></div>
     </nav>
   </header>
-  <main id="main">
-    <p class="eyebrow">Local-first · Read-only evidence</p>
-    <h1>Turn enterprise evidence into a practical improvement plan.</h1>
-    <p class="lead">Collect GitHub configuration evidence, add your team's process knowledge, and review prioritized findings across five Well-Architected pillars.</p>
-    <p class="notice">This site is documentation, not a hosted assessment service. Run the tool on your own machine. It uses an independently defined rubric and maturity model, not an official GitHub certification or a comprehensive security audit.</p>
-    <div class="toc" role="navigation" aria-label="On this page">
-      <a href="#quickstart">Try the demo</a>
-      <a href="#collect">Collect evidence</a>
-      <a href="#review">Review findings</a>
-      <a href="#questionnaire">Answer questions</a>
-      <a href="#coverage">Understand coverage</a>
-      <a href="#export">Export and act</a>
-      <a href="#troubleshooting">Troubleshooting</a>
-    </div>
+  <main id="main" class="container-lg px-3 px-md-5 py-6">
+    <p class="Label Label--accent mb-3">Local-first · Read-only evidence</p>
+    <h1 class="f1 lh-condensed mb-3 col-lg-9">Turn enterprise evidence into a practical improvement plan.</h1>
+    <p class="f3 color-fg-muted col-lg-9 mb-4">Collect GitHub configuration evidence, add your team's process knowledge, and review prioritized findings across five Well-Architected pillars.</p>
+    <p class="flash my-3">This site is documentation, not a hosted assessment service. Run the tool on your own machine. It uses an independently defined rubric and maturity model, not an official GitHub certification or a comprehensive security audit.</p>
+    <nav class="Box color-bg-subtle px-3 py-2 my-4" aria-label="On this page">
+      <ul class="toc list-style-none d-flex flex-wrap">
+        <li><a class="Link--primary" href="#quickstart">Try the demo</a></li>
+        <li><a class="Link--primary" href="#collect">Collect evidence</a></li>
+        <li><a class="Link--primary" href="#review">Review findings</a></li>
+        <li><a class="Link--primary" href="#questionnaire">Answer questions</a></li>
+        <li><a class="Link--primary" href="#coverage">Understand coverage</a></li>
+        <li><a class="Link--primary" href="#export">Export and act</a></li>
+        <li><a class="Link--primary" href="#troubleshooting">Troubleshooting</a></li>
+      </ul>
+    </nav>
 
-    <section id="quickstart">
+    <section class="markdown-body mt-6" id="quickstart">
       <h2>1. Try it without credentials</h2>
       <p>Install Node.js 20 or later and npm. Clone the repository, install its dependencies, and start the bundled demo. No GitHub token is needed for the demo.</p>
       <pre><code>git clone https://github.com/beardofedu/github-enterprise-assessment.git
@@ -40,10 +43,10 @@ cd github-enterprise-assessment
 npm ci
 npm run demo</code></pre>
       <p>Open <a href="http://127.0.0.1:4173">http://127.0.0.1:4173</a>. Demo answers are saved locally to <code>answers.demo.json</code>; stop the server with Ctrl+C. To start over, stop the demo and move that answers file aside before restarting.</p>
-      <div class="steps">
-        <div class="card"><h3>Collect</h3><p>Read enterprise and organization evidence through GitHub APIs, or explore the fictional demo.</p></div>
-        <div class="card"><h3>Assess</h3><p>Review automated checks and answer questions that need human context.</p></div>
-        <div class="card"><h3>Improve</h3><p>Export reports and manual tasks, agree on changes, then reassess.</p></div>
+      <div class="steps my-4">
+        <div class="Box p-3"><h3 class="h4 mt-0">Collect</h3><p>Read enterprise and organization evidence through GitHub APIs, or explore the fictional demo.</p></div>
+        <div class="Box p-3"><h3 class="h4 mt-0">Assess</h3><p>Review automated checks and answer questions that need human context.</p></div>
+        <div class="Box p-3"><h3 class="h4 mt-0">Improve</h3><p>Export reports and manual tasks, agree on changes, then reassess.</p></div>
       </div>
       <p>All screenshots below come from the running tool using bundled fictional evidence and demo questionnaire answers. They do not show a real enterprise. Select an image to view it at full size.</p>
       <figure>
@@ -52,7 +55,7 @@ npm run demo</code></pre>
       </figure>
     </section>
 
-    <section id="collect">
+    <section class="markdown-body mt-6" id="collect">
       <h2>2. Collect your enterprise's evidence</h2>
       <p>Authenticate with the GitHub CLI using an identity authorized to read the intended enterprise and organizations. Replace <code>YOUR_ENTERPRISE_SLUG</code> with the last part of your enterprise URL.</p>
       <pre><code>gh auth login
@@ -68,10 +71,10 @@ gh auth login --hostname github.example.com
 GH_TOKEN="$(gh auth token --hostname github.example.com)" node bin/gh-waf-assess.js run \
   --enterprise YOUR_ENTERPRISE_SLUG --api-url https://github.example.com/api/v3</code></pre>
       <p>The default inventory limit is 1,000 repositories per organization; deep inspection samples 25 active repositories. Adjust <code>--max-repos</code> and <code>--sample</code> as needed. Samples, truncated inventories, and inaccessible settings are not comprehensive coverage. GitHub Enterprise Server API availability depends on the server version.</p>
-      <p class="notice"><strong>Keep assessment data private.</strong> Evidence, answers, reports, and notes may contain sensitive enterprise information. Do not commit them or upload them to GitHub Pages. The dashboard binds to loopback, and collection makes read-only GitHub API requests.</p>
+      <p class="flash flash-warn my-3"><strong>Keep assessment data private.</strong> Evidence, answers, reports, and notes may contain sensitive enterprise information. Do not commit them or upload them to GitHub Pages. The dashboard binds to loopback, and collection makes read-only GitHub API requests.</p>
     </section>
 
-    <section id="review">
+    <section class="markdown-body mt-6" id="review">
       <h2>3. Review findings and controls</h2>
       <p>Start in <strong>Improvement areas</strong>. Findings are ranked by control weight multiplied by the gap; review High severity failures first. Confirm the affected scope and linked guidance before deciding on a change.</p>
       <p>Switch to <strong>All controls</strong> to see passes as well as incomplete and failed checks. Filter by pillar and status to focus your review. Expand evidence details where available.</p>
@@ -84,7 +87,7 @@ GH_TOKEN="$(gh auth token --hostname github.example.com)" node bin/gh-waf-assess
       <p>Maturity labels are Initial (below 40), Developing (40 to below 60), Defined (60 to below 75), Managed (75 to below 90), and Optimized (90 to 100). A high score with low coverage is not a complete assessment.</p>
     </section>
 
-    <section id="questionnaire">
+    <section class="markdown-body mt-6" id="questionnaire">
       <h2>4. Add the human context</h2>
       <p>Open <strong>Questionnaire</strong> for controls that cannot be determined from the API. Choose Yes, Partial, No, or N/A and add notes that explain your evidence. Answers save automatically; notes save when you leave the field. Check for the save confirmation and resolve any error before closing the dashboard.</p>
       <figure>
@@ -104,7 +107,7 @@ GH_TOKEN="$(gh auth token --hostname github.example.com)" node bin/gh-waf-assess
       <p>Allowed answer values are <code>yes</code>, <code>partial</code>, <code>no</code>, and <code>na</code>. Imports must be no larger than 64 KiB, with notes of at most 4,000 characters per control. Invalid imports leave existing answers unchanged.</p>
     </section>
 
-    <section id="coverage">
+    <section class="markdown-body mt-6" id="coverage">
       <h2>5. Resolve coverage gaps</h2>
       <p><strong>Coverage gaps</strong> lists unknown or unanswered controls. These are missing evidence, not confirmed configuration failures. Review access errors, unsupported endpoints, and questionnaire items before interpreting the overall score.</p>
       <figure>
@@ -113,7 +116,7 @@ GH_TOKEN="$(gh auth token --hostname github.example.com)" node bin/gh-waf-assess
       </figure>
     </section>
 
-    <section id="export">
+    <section class="markdown-body mt-6" id="export">
       <h2>6. Export reports and plan improvements</h2>
       <p>Download Markdown, JSON, or standalone HTML reports from the dashboard. HTML reports include their styling for offline viewing. Use <strong>Download task</strong> on a finding or gap to export a Markdown recommendation, reference links, and a review checklist.</p>
       <p>Collection, dashboard actions, and task downloads never change GitHub settings. Agree on the intended policy with the relevant owners, apply approved changes through your normal change-control process, verify in GitHub, and collect fresh evidence.</p>
@@ -132,7 +135,7 @@ node bin/gh-waf-assess.js assess --evidence evidence.json --answers answers.json
       <p>Read the <a href="https://github.com/beardofedu/github-enterprise-assessment/blob/main/docs/implementation-guide.md">implementation guide</a> and <a href="https://github.com/beardofedu/github-enterprise-assessment/blob/main/docs/official-updates.md">daily official GitHub updates digest</a> before applying changes. The digest tracks upstream GitHub guidance; the <a href="changelog.html">tool changelog</a> tracks this project.</p>
     </section>
 
-    <section id="troubleshooting">
+    <section class="markdown-body mt-6" id="troubleshooting">
       <h2>Troubleshooting</h2>
       <dl>
         <dt>The dashboard says Primer CSS is missing</dt>
@@ -147,6 +150,8 @@ node bin/gh-waf-assess.js assess --evidence evidence.json --answers answers.json
       <p>Report reproducible problems using the <a href="https://github.com/beardofedu/github-enterprise-assessment/issues/new/choose">issue templates</a>, using fictional or sanitized data only. See the <a href="https://github.com/beardofedu/github-enterprise-assessment/blob/main/SECURITY.md">security policy</a> for private vulnerability reporting.</p>
     </section>
   </main>
-  <footer>Independent assessment tooling. Documentation on GitHub Pages; your assessment runs locally. <a href="https://github.com/beardofedu/github-enterprise-assessment/blob/main/LICENSE">MIT License</a>.</footer>
+  <footer class="border-top color-bg-subtle">
+    <p class="container-lg px-3 px-md-5 py-4 mb-0 f6 color-fg-muted">Independent assessment tooling. Documentation on GitHub Pages; your assessment runs locally. <a href="https://github.com/beardofedu/github-enterprise-assessment/blob/main/LICENSE">MIT License</a>.</p>
+  </footer>
 </body>
 </html>

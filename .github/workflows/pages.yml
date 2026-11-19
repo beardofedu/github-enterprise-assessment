@@ -31,7 +31,7 @@ jobs:
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         run: |
           mkdir -p _site/images
-          cp docs/index.html docs/changelog.html docs/site.css _site/
+          cp docs/index.html docs/changelog.html docs/primer.css docs/site.css _site/
           cp docs/images/demo-*.png _site/images/
       - uses: actions/upload-pages-artifact@v3
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
