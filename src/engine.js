@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { checks as builtInChecks } from './checks.js';
+import { accessRemediation, combinedAccessRemediation } from './permissions.js';
 
 export const DEFAULT_RUBRIC_PATH = fileURLToPath(new URL('../rubric/well-architected.json', import.meta.url));
 const ANSWERS = new Set(['yes', 'partial', 'no', 'na']);
@@ -107,7 +108,7 @@ export function assess({ rubric, evidence, answers = {}, checks = builtInChecks 
 
   const coverageGaps = controls
     .filter((c) => c.status === 'unknown' || c.status === 'unanswered')
-    .map((c) => ({ id: c.id, pillar: c.pillar, title: c.title, status: c.status, finding: c.finding, question: c.question || null }));
+    .map((c) => ({ id: c.id, pillar: c.pillar, title: c.title, status: c.status, finding: c.finding, question: c.question || null, access: c.status === 'unknown' ? accessRemediation(c.finding, evidence.meta?.apiUrl) : null }));
 
   return {
     meta: {
@@ -129,5 +130,6 @@ export function assess({ rubric, evidence, answers = {}, checks = builtInChecks 
     controls,
     improvements,
     coverageGaps,
+    coverageAccess: combinedAccessRemediation(coverageGaps, evidence.meta?.apiUrl),
   };
 }

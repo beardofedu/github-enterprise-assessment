@@ -10,6 +10,8 @@
   "scripts": {
     "test": "node --test",
     "test:a11y": "node tests/accessibility.mjs",
+    "docs:primer": "node -e \"require('node:fs').copyFileSync(require.resolve('@primer/css/dist/primer.css'),'docs/primer.css')\"",
+    "pretest:docs": "npm run docs:primer",
     "test:docs": "node tests/docs.mjs",
     "docs:screenshots": "node bin/capture-docs-screenshots.mjs",
     "demo": "node bin/gh-waf-assess.js serve --demo",

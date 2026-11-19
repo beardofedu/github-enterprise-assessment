@@ -80,6 +80,70 @@ test('checks report unknown when an org endpoint was denied', () => {
   assert.match(r.finding, /Must be an org owner/);
 });
 
+test('organization breakdown includes enabled, disabled, and unassessed organizations', () => {
+  const evidence = { orgs: {
+    enabled: { settings: { ok: true, data: { two_factor_requirement_enabled: true } } },
+    disabled: { settings: { ok: true, data: { two_factor_requirement_enabled: false } } },
+    unavailable: { settings: { ok: false, error: 'Access denied' } },
+  } };
+  const result = checks['GOV-02'](evidence);
+  assert.match(result.finding, /^1 of 2 organizations meet/);
+  assert.deepEqual(result.details.breakdown.labels, { pass: 'Enabled', fail: 'Disabled' });
+  assert.deepEqual(result.details.breakdown.items, [
+    { name: 'enabled', status: 'pass', note: undefined },
+    { name: 'disabled', status: 'fail', note: undefined },
+    { name: 'unavailable', status: 'unknown', note: 'Access denied' },
+  ]);
+});
+
+test('repository breakdown distinguishes disabled settings from missing evidence', () => {
+  const repo = (name, security_and_analysis, extra = {}) => ({ name, security_and_analysis, ...extra });
+  const evidence = { orgs: {
+    acme: { repos: { ok: true, data: { truncated: true, items: [
+      repo('enabled', { secret_scanning_push_protection: { status: 'enabled' } }),
+      repo('disabled', { secret_scanning_push_protection: { status: 'disabled' } }),
+      repo('missing-feature', {}),
+      repo('missing-settings', null),
+      repo('archived', {}, { archived: true }),
+      repo('fork', {}, { fork: true }),
+    ] } } },
+    unavailable: { repos: { ok: false, error: 'Access denied' } },
+  } };
+  const result = checks['SEC-02'](evidence);
+  assert.match(result.finding, /^1 of 3 active repositories/);
+  const breakdown = result.details.breakdown;
+  assert.deepEqual(breakdown.items.map(({ name, status }) => ({ name, status })), [
+    { name: 'acme/enabled', status: 'pass' },
+    { name: 'acme/disabled', status: 'fail' },
+    { name: 'acme/missing-feature', status: 'unknown' },
+    { name: 'acme/missing-settings', status: 'unknown' },
+  ]);
+  assert.match(breakdown.items[2].note, /counted as not enabled/);
+  assert.match(breakdown.items[3].note, /excluded from the score/);
+  assert.equal(breakdown.truncated, true);
+  assert.deepEqual(breakdown.unavailable, ['unavailable']);
+});
+
+test('sampled repository breakdown marks denied and unsampled checks as unassessed', () => {
+  const evidence = { orgs: { acme: {
+    repos: { ok: true, data: { truncated: false, items: ['present', 'absent', 'denied', 'unsampled'].map((name) => ({ name })) } },
+    repoSample: { ok: true, data: [
+      { name: 'present', codeowners: { ok: true, data: true } },
+      { name: 'absent', codeowners: { ok: true, data: false } },
+      { name: 'denied', codeowners: { ok: false, error: 'Access denied' } },
+    ] },
+  } } };
+  const result = checks['COL-01'](evidence);
+  assert.match(result.finding, /^1 of 2 sampled active repositories/);
+  assert.deepEqual(result.details.breakdown.items, [
+    { name: 'acme/present', status: 'pass' },
+    { name: 'acme/absent', status: 'fail' },
+    { name: 'acme/denied', status: 'unknown', note: 'Access denied' },
+    { name: 'acme/unsampled', status: 'unknown', note: 'Not included in the repository sample.' },
+  ]);
+  assert.equal(result.details.breakdown.sampled, true);
+});
+
 test('ARC-01 is not applicable without self-hosted runners', () => {
   const r = checks['ARC-01']({ orgs: { a: { selfHostedRunners: { ok: true, data: 0 } } } });
   assert.equal(r.status, 'not_applicable');
@@ -107,4 +171,35 @@ test('Markdown table cells escape backslashes before pipe delimiters', () => {
   const md = renderMarkdown(a);
   const escapedCell = String.raw`first\\\|second\|third`;
   assert.ok(md.includes(`| ${escapedCell} |`));
+});
+
+test('access-denied coverage gaps avoid double periods and include a gh auth refresh command', () => {
+  const error = 'GET /orgs/acme/actions/runners?per_page=1 -> 403: You must be an org admin or have the runners and runner groups fine-grained permission.';
+  const evidence = { meta: { apiUrl: 'https://api.acme.ghe.com' }, enterprise: null, orgs: { acme: { selfHostedRunners: { ok: false, error, status: 403 } } } };
+  const a = assess({ rubric, evidence });
+  const gap = a.coverageGaps.find((g) => g.id === 'ARC-01');
+  assert.equal(gap.finding, `Could not evaluate scoped self-hosted runner groups: ${error}`);
+  assert.deepEqual(gap.access, {
+    scopes: ['admin:org'],
+    command: 'gh auth refresh -h acme.ghe.com -s admin:org',
+    requiresOwner: true,
+    requiresRepositoryAdmin: false,
+    requiresSecurityManager: false,
+  });
+  assert.match(a.coverageAccess.command, /^gh auth refresh -h acme\.ghe\.com -s .*admin:org/);
+  assert.match(renderMarkdown(a), /```sh\ngh auth refresh -h acme\.ghe\.com -s /);
+});
+
+test('repository-security access gaps identify repository administrator prerequisites', () => {
+  const error = 'repository security settings were not returned (the token needs admin access to repositories)';
+  const evidence = { meta: { apiUrl: 'https://api.github.com' }, orgs: { acme: {
+    repos: { ok: true, data: { truncated: false, items: [{ name: 'private-repo' }] } },
+    repoSecurity: { ok: false, error, status: 403 },
+  } } };
+  const a = assess({ rubric, evidence });
+  const gap = a.coverageGaps.find((item) => item.id === 'SEC-01');
+  assert.equal(gap.access.requiresRepositoryAdmin, true);
+  assert.equal(gap.access.requiresOwner, false);
+  assert.equal(gap.access.requiresSecurityManager, false);
+  assert.match(renderMarkdown(a), /must also have repository administrator access/);
 });

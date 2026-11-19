@@ -5,3 +5,6 @@ answers*.json
 reports/
 *.tmp
 node_modules/
+
+# Copied from @primer/css by `npm run docs:primer`
+docs/primer.css
