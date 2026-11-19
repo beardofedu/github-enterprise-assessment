@@ -165,6 +165,14 @@ test('reports render and HTML embedding escapes script-breaking content', () => 
   assert.ok(!html.includes('<link rel="stylesheet" href="/primer.css">'));
 });
 
+test('Markdown table cells escape backslashes before pipe delimiters', () => {
+  const a = assess({ rubric, evidence: sample });
+  a.controls[0].finding = String.raw`first\|second|third`;
+  const md = renderMarkdown(a);
+  const escapedCell = String.raw`first\\\|second\|third`;
+  assert.ok(md.includes(`| ${escapedCell} |`));
+});
+
 test('access-denied coverage gaps avoid double periods and include a gh auth refresh command', () => {
   const error = 'GET /orgs/acme/actions/runners?per_page=1 -> 403: You must be an org admin or have the runners and runner groups fine-grained permission.';
   const evidence = { meta: { apiUrl: 'https://api.acme.ghe.com' }, enterprise: null, orgs: { acme: { selfHostedRunners: { ok: false, error, status: 403 } } } };
