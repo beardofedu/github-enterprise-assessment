@@ -100,3 +100,11 @@ test('reports render and HTML embedding escapes script-breaking content', () => 
   assert.ok(html.includes('.UnderlineNav'));
   assert.ok(!html.includes('<link rel="stylesheet" href="/primer.css">'));
 });
+
+test('Markdown table cells escape backslashes before pipe delimiters', () => {
+  const a = assess({ rubric, evidence: sample });
+  a.controls[0].finding = String.raw`first\|second|third`;
+  const md = renderMarkdown(a);
+  const escapedCell = String.raw`first\\\|second\|third`;
+  assert.ok(md.includes(`| ${escapedCell} |`));
+});

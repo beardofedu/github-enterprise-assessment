@@ -4,7 +4,7 @@ import { readPrimerCss } from './web-assets.js';
 const TEMPLATE_URL = new URL('./web/index.html', import.meta.url);
 const PRIMER_LINK = '<link rel="stylesheet" href="/primer.css">';
 const STATUS_ICON = { pass: '✅', partial: '🟡', fail: '❌', unknown: '❔', unanswered: '📝', not_applicable: '➖' };
-const cell = (s) => String(s ?? '').replace(/\|/g, '\\|').replace(/\n/g, ' ');
+const cell = (s) => String(s ?? '').replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\n/g, ' ');
 
 export function renderJson(assessment) {
   return JSON.stringify(assessment, null, 2);
