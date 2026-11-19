@@ -104,7 +104,10 @@
 <dialog id="finding-details-dialog" aria-labelledby="finding-details-title">
   <div class="finding-details-header d-flex flex-justify-between flex-items-start gap-2">
     <h2 class="h3" id="finding-details-title"></h2>
-    <form method="dialog"><button class="btn" type="submit">Close</button></form>
+    <div class="d-flex gap-2">
+      <button class="btn" type="button" id="finding-details-export">Export .md</button>
+      <form method="dialog"><button class="btn" type="submit">Close</button></form>
+    </div>
   </div>
   <div id="finding-details-content"></div>
 </dialog>
@@ -206,7 +209,9 @@ function findingText(control) {
   return `<button class="btn-link finding-link" type="button" data-breakdown="${esc(control.id)}" aria-haspopup="dialog" aria-label="${esc(control.finding)} View ${entities}.">${esc(control.finding)}</button>`;
 }
 
-function showFindingDetails(control) {
+let detailsControl = null;
+
+function breakdownSections(control) {
   const { kind, items, labels = {}, unavailable = [], truncated, sampled } = control.details.breakdown;
   const groups = [
     ['pass', labels.pass || 'Meets requirement'],
@@ -219,19 +224,55 @@ function showFindingDetails(control) {
   if (sampled) notices.push('Only sampled repositories were assessed. Other collected repositories are listed as not assessed.');
   if (truncated) notices.push('Repository inventory was truncated by --max-repos. Increase the limit and recollect to include the rest.');
   if (unavailable.length) notices.push(`Repository inventory unavailable for: ${unavailable.join(', ')}.`);
+  const sections = groups.map(([status, title]) => ({
+    status, title,
+    entries: items.filter((item) => item.status === status).sort((a, b) => a.name.localeCompare(b.name)),
+  })).filter(({ status, entries }) => entries.length || status === 'pass' || status === 'fail');
+  const scope = `Results for collected ${kind === 'repository' ? 'active repositories' : 'organizations'}.`;
+  return { scope, notices, sections };
+}
+
+function showFindingDetails(control) {
+  detailsControl = control;
+  const { scope, notices, sections } = breakdownSections(control);
   document.getElementById('finding-details-title').textContent = `${control.id}: ${control.title}`;
   document.getElementById('finding-details-content').innerHTML = `<p>${esc(control.finding)}</p>
-    <p class="color-fg-muted text-small">Results for collected ${kind === 'repository' ? 'active repositories' : 'organizations'}.</p>
+    <p class="color-fg-muted text-small">${esc(scope)}</p>
     ${notices.map((notice) => `<p class="color-fg-muted text-small">${esc(notice)}</p>`).join('')}
-    <div class="breakdown-groups">${groups.map(([status, title]) => {
-      const entries = items.filter((item) => item.status === status).sort((a, b) => a.name.localeCompare(b.name));
-      if (!entries.length && status !== 'pass' && status !== 'fail') return '';
-      return `<section><h3 class="h5 mt-3">${esc(title)} (${entries.length})</h3>${entries.length
+    <div class="breakdown-groups">${sections.map(({ title, entries }) => `<section><h3 class="h5 mt-3">${esc(title)} (${entries.length})</h3>${entries.length
         ? `<ul class="breakdown-list">${entries.map((item) => `<li>${esc(item.name)}${item.note ? ` — ${esc(item.note)}` : ''}</li>`).join('')}</ul>`
-        : '<p class="color-fg-muted text-small">None.</p>'}</section>`;
-    }).join('')}</div>`;
+        : '<p class="color-fg-muted text-small">None.</p>'}</section>`).join('')}</div>`;
   document.getElementById('finding-details-dialog').showModal();
 }
+
+function exportFindingDetails(control) {
+  const { scope, notices, sections } = breakdownSections(control);
+  const md = (text) => String(text).replace(/([\\`*_[\]<>|#])/g, '\\$1');
+  const markdown = [
+    `# ${control.id}: ${md(control.title)}`,
+    '',
+    `- **Pillar:** ${md(pillarName(control.pillar))}`,
+    `- **Finding:** ${md(control.finding)}`,
+    `- **Evidence collected:** ${data.meta?.evidenceGeneratedAt ? new Date(data.meta.evidenceGeneratedAt).toISOString() : 'Unknown'}`,
+    '',
+    scope,
+    ...(notices.length ? ['', ...notices.map((notice) => `> ${md(notice)}`)] : []),
+    ...sections.flatMap(({ title, entries }) => ['', `## ${md(title)} (${entries.length})`, '',
+      ...(entries.length ? entries.map((item) => `- \`${item.name}\`${item.note ? ` — ${md(item.note)}` : ''}`) : ['None.'])]),
+    '',
+  ].join('\n');
+  const slug = `${control.id}-${control.title}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const file = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(file);
+  link.download = `${slug}.md`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+
+document.getElementById('finding-details-export').addEventListener('click', () => {
+  if (detailsControl) exportFindingDetails(detailsControl);
+});
 
 function bindControlActions(el) {
   el.querySelectorAll('[data-task]').forEach((button) => button.addEventListener('click', () => {

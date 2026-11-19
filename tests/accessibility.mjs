@@ -392,6 +392,15 @@ try {
   assert.ok(dialogSize.scroll <= dialogSize.client + 1, "breakdown must reflow within a narrow dialog");
   assert.ok(dialogSize.headerTop >= dialogSize.top && dialogSize.headerBottom <= dialogSize.bottom, "breakdown close button must remain visible while scrolling");
   await axe(narrow, "Narrow breakdown dialog");
+  const breakdownDownload = narrow.waitForEvent("download");
+  await narrowDialog.getByRole("button", { name: "Export .md" }).click();
+  const breakdownFile = await breakdownDownload;
+  assert.match(breakdownFile.suggestedFilename(), /^sec-02-[a-z0-9-]+\.md$/);
+  let breakdownMarkdown = "";
+  for await (const chunk of await breakdownFile.createReadStream()) breakdownMarkdown += chunk.toString();
+  assert.match(breakdownMarkdown, /^# SEC-02: /);
+  assert.match(breakdownMarkdown, /^## .+ \(\d+\)$/m);
+  assert.match(breakdownMarkdown, /^- `[^`]+\/[^`]+`/m);
   await narrow.keyboard.press("Escape");
   await axe(narrow, "Narrow viewport");
   console.log("Skip link, tab keyboard navigation, and 390px reflow: passed");

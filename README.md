@@ -74,7 +74,7 @@ Pass, partial, and fail are scored as 1, 0.5, and 0, weighted by control importa
 
 Select a pillar summary card to open All controls filtered to that pillar. Any existing status filter is retained; the card's guidance link opens the Well-Architected checklist.
 
-Select an automated finding to see its collected repository or organization results. Unavailable settings and unsampled repositories are marked as not assessed; the list identifies truncated or unavailable inventories.
+Select an automated finding to see its collected repository or organization results. Unavailable settings and unsampled repositories are marked as not assessed; the list identifies truncated or unavailable inventories. Use **Export .md** in the results dialog to download the grouped list as a Markdown file named for the control.
 
 To customize controls or scoring, copy `rubric/well-architected.json` and pass `--rubric path/to/rubric.json`. New automated controls also require a matching check implementation in `src/checks.js`.
 
