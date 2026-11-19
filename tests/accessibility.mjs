@@ -392,6 +392,10 @@ try {
   assert.ok(dialogSize.scroll <= dialogSize.client + 1, "breakdown must reflow within a narrow dialog");
   assert.ok(dialogSize.headerTop >= dialogSize.top && dialogSize.headerBottom <= dialogSize.bottom, "breakdown close button must remain visible while scrolling");
   await axe(narrow, "Narrow breakdown dialog");
+  await narrow.evaluate(() => {
+    const item = data.controls.find((control) => control.id === "SEC-02").details.breakdown.items[0];
+    item.note = "Sample context";
+  });
   const breakdownDownload = narrow.waitForEvent("download");
   await narrowDialog.getByRole("button", { name: "Export .md" }).click();
   const breakdownFile = await breakdownDownload;
@@ -401,6 +405,8 @@ try {
   assert.match(breakdownMarkdown, /^# SEC-02: /);
   assert.match(breakdownMarkdown, /^## .+ \(\d+\)$/m);
   assert.match(breakdownMarkdown, /^- `[^`]+\/[^`]+`/m);
+  assert.match(breakdownMarkdown, / - Sample context/);
+  assert.doesNotMatch(breakdownMarkdown, /[^\x00-\x7F]/, "exported Markdown should contain only ASCII characters");
   await narrow.keyboard.press("Escape");
   await axe(narrow, "Narrow viewport");
   console.log("Skip link, tab keyboard navigation, and 390px reflow: passed");

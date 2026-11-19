@@ -258,7 +258,7 @@ function exportFindingDetails(control) {
     scope,
     ...(notices.length ? ['', ...notices.map((notice) => `> ${md(notice)}`)] : []),
     ...sections.flatMap(({ title, entries }) => ['', `## ${md(title)} (${entries.length})`, '',
-      ...(entries.length ? entries.map((item) => `- \`${item.name}\`${item.note ? ` — ${md(item.note)}` : ''}`) : ['None.'])]),
+      ...(entries.length ? entries.map((item) => `- \`${item.name}\`${item.note ? ` - ${md(item.note)}` : ''}`) : ['None.'])]),
     '',
   ].join('\n');
   const slug = `${control.id}-${control.title}`.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
