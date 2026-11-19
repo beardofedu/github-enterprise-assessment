@@ -29,6 +29,9 @@
   .q textarea { min-height: 4rem; width: min(100%, 48rem); }
   .remediation { margin-top: .375rem; }
   .implementation-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: .5rem; }
+  dialog { max-width: min(36rem, calc(100vw - 2rem)); border: 1px solid var(--borderColor-default); border-radius: .5rem; color: var(--fgColor-default); background: var(--bgColor-default); }
+  dialog::backdrop { background: rgb(31 35 40 / 60%); }
+  .implementation-form { display: grid; gap: .75rem; }
   details summary { cursor: pointer; color: var(--fgColor-muted); }
   :focus-visible { outline: 2px solid var(--focus-outlineColor); outline-offset: 2px; }
   #toast, #save-error, #load-error { position: fixed; z-index: 10; right: 1rem; bottom: 1rem; max-width: calc(100vw - 2rem); }
@@ -72,9 +75,30 @@
 <div id="toast" class="flash flash-success" role="status" aria-live="polite" aria-atomic="true" hidden></div>
 <div id="save-error" class="flash flash-error" role="alert" hidden></div>
 <div id="load-error" class="flash flash-error" role="alert" hidden></div>
+<dialog id="implementation-dialog" aria-labelledby="implementation-title">
+  <form id="implementation-form" class="implementation-form">
+    <h2 class="h3 m-0" id="implementation-title">Apply an approved setting</h2>
+    <p class="m-0" id="implementation-description"></p>
+    <label for="implementation-org">Organization</label>
+    <select class="FormControl-select" id="implementation-org" required></select>
+    <label for="implementation-token">Separate fine-grained implementation token</label>
+    <input class="FormControl-input" id="implementation-token" type="password" autocomplete="off" required>
+    <label><input class="FormControl-checkbox" id="implementation-confirm" type="checkbox" required> I reviewed and approve this organization setting change.</label>
+    <p class="color-fg-muted text-small m-0">This token is sent only with this request and is not saved. Do not enter the read-only assessment token.</p>
+    <div class="d-flex flex-justify-end gap-2">
+      <button class="btn" type="button" id="implementation-cancel">Cancel</button>
+      <button class="btn btn-primary" type="submit">Apply setting</button>
+    </div>
+  </form>
+</dialog>
 <script>
 const STATIC = window.__ASSESSMENT__ || null;
 let data = STATIC;
+let pendingImplementation = null;
+const AUTOMATED_IMPLEMENTATIONS = {
+  'GOV-05': 'Set the organization base repository permission to Read.',
+  'GOV-06': 'Disable member creation of public repositories in the organization.',
+};
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 const pill = (status) => {
   const styles = { pass: 'Label--success', partial: 'Label--attention', fail: 'Label--danger' };
@@ -92,10 +116,11 @@ const documentationLink = (list) => {
 const scoreProgress = (label, score) => score == null ? '<p class="color-fg-muted">Score not available</p>'
   : `<progress class="ScoreProgress" max="100" value="${score}" aria-label="${esc(label)} score: ${score} percent"></progress>`;
 
-function bindImplementButtons(el) {
-  el.querySelectorAll('[data-implement]').forEach((button) => button.addEventListener('click', () => {
-    const control = data.controls.find((item) => item.id === button.dataset.implement);
-    if (!control) return;
+function implementationTargets(control) {
+  return STATIC ? [] : (control.details?.orgs || []).filter((item) => ['fail', 'partial'].includes(item.status)).map((item) => item.org);
+}
+
+function downloadTask(control) {
     const links = (control.references || []).filter((url) => {
       try { return new URL(url).protocol === 'https:'; } catch { return false; }
     });
@@ -119,7 +144,7 @@ function bindImplementButtons(el) {
       '- [ ] Apply the approved configuration or process change.',
       '- [ ] Re-run the assessment and verify the result.',
       '',
-      'This plan is generated locally. The assessment tool does not change GitHub settings.',
+      'This is a manual task export; downloading it does not change GitHub settings.',
       '',
     ].join('\n');
     const file = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
@@ -128,8 +153,61 @@ function bindImplementButtons(el) {
     link.download = `${control.id.toLowerCase()}-implementation.md`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+
+function bindImplementationActions(el) {
+  el.querySelectorAll('[data-task]').forEach((button) => button.addEventListener('click', () => {
+    const control = data.controls.find((item) => item.id === button.dataset.task);
+    if (!control) return;
+    downloadTask(control);
+  }));
+  el.querySelectorAll('[data-apply]').forEach((button) => button.addEventListener('click', () => {
+    const control = data.controls.find((item) => item.id === button.dataset.apply);
+    const targets = control && implementationTargets(control);
+    if (!control || !targets?.length) return;
+    pendingImplementation = { control, button };
+    let apiHost = 'https://api.github.com';
+    try { apiHost = new URL(data.meta.apiUrl || apiHost).origin; } catch { /* use the GitHub.com API default */ }
+    document.getElementById('implementation-description').textContent = `${AUTOMATED_IMPLEMENTATIONS[control.id]} Only organizations with a confirmed failing or partial finding are available. The token will be sent to ${apiHost}.`;
+    document.getElementById('implementation-org').innerHTML = targets.map((org) => `<option value="${esc(org)}">${esc(org)}</option>`).join('');
+    document.getElementById('implementation-token').value = '';
+    document.getElementById('implementation-confirm').checked = false;
+    document.getElementById('implementation-dialog').showModal();
   }));
 }
+
+document.getElementById('implementation-cancel').addEventListener('click', () => document.getElementById('implementation-dialog').close());
+document.getElementById('implementation-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (!pendingImplementation) return;
+  const tokenInput = document.getElementById('implementation-token');
+  const applyButton = event.currentTarget.querySelector('[type="submit"]');
+  applyButton.disabled = true;
+  try {
+    const response = await fetch('/api/implement', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        controlId: pendingImplementation.control.id,
+        organization: document.getElementById('implementation-org').value,
+        token: tokenInput.value,
+        confirmed: document.getElementById('implementation-confirm').checked,
+      }),
+    });
+    if (!response.ok) throw new Error(await response.text());
+    const result = await response.json();
+    pendingImplementation.button.disabled = true;
+    document.getElementById('implementation-dialog').close();
+    document.getElementById('toast').textContent = result.message;
+    document.getElementById('toast').hidden = false;
+  } catch (error) {
+    document.getElementById('load-error').textContent = `Unable to apply the setting: ${error.message}`;
+    document.getElementById('load-error').hidden = false;
+  } finally {
+    tokenInput.value = '';
+    applyButton.disabled = false;
+  }
+});
 
 function renderSummary() {
   const m = data.meta, o = data.overall;
@@ -151,13 +229,17 @@ function renderSummary() {
 function renderImprovements() {
   const el = document.getElementById('tab-improvements');
   if (!data.improvements.length) { el.innerHTML = '<h2 class="h3">Improvement areas</h2><p class="color-fg-muted">No improvement areas identified among assessed controls.</p>'; return; }
-  el.innerHTML = `<h2 class="h3">Improvement areas</h2><p class="color-fg-muted">Ranked by priority (control weight × gap). Address High severity failures first.</p><div class="table-wrap" role="region" aria-label="Improvement areas table" tabindex="0"><table><thead><tr><th scope="col">#</th><th scope="col">Control</th><th scope="col">Pillar</th><th scope="col">Status</th><th scope="col">Severity</th><th scope="col">Finding &amp; recommendation</th></tr></thead><tbody>${
-    data.improvements.map((c, i) => `<tr><td>${i + 1}</td><td><strong>${esc(c.id)}</strong><br>${esc(c.title)}</td><td>${esc(pillarName(c.pillar))}<br><span class="color-fg-muted text-small">${esc(c.area)}</span></td><td>${pill(c.status)}</td><td><span class="Label ${c.severity === 'High' ? 'Label--danger' : c.severity === 'Medium' ? 'Label--attention' : 'Label--secondary'}">${esc(c.severity)}</span></td>
+  const rows = data.improvements.map((c, i) => {
+    const full = data.controls.find((item) => item.id === c.id);
+    const targets = implementationTargets(full || {});
+    return `<tr><td>${i + 1}</td><td><strong>${esc(c.id)}</strong><br>${esc(c.title)}</td><td>${esc(pillarName(c.pillar))}<br><span class="color-fg-muted text-small">${esc(c.area)}</span></td><td>${pill(c.status)}</td><td><span class="Label ${c.severity === 'High' ? 'Label--danger' : c.severity === 'Medium' ? 'Label--attention' : 'Label--secondary'}">${esc(c.severity)}</span></td>
       <td>${esc(c.finding)}<div class="remediation"><strong>Recommendation:</strong> ${esc(c.remediation)}</div><div class="implementation-actions">
-        <button class="btn btn-sm" type="button" data-implement="${esc(c.id)}" aria-label="Implement ${esc(c.id)}: ${esc(c.title)}">Implement</button>
-        ${documentationLink(c.references)} ${implementationGuideLink()}</div></td></tr>`).join('')
-  }</tbody></table></div>`;
-  bindImplementButtons(el);
+        <button class="btn btn-sm" type="button" data-task="${esc(c.id)}" aria-label="Download task for ${esc(c.id)}: ${esc(c.title)}">Download task</button>
+        ${AUTOMATED_IMPLEMENTATIONS[c.id] && targets.length ? `<button class="btn btn-sm btn-primary" type="button" data-apply="${esc(c.id)}">Apply supported setting</button>` : '<span class="color-fg-muted text-small">Manual implementation or task export only</span>'}
+        ${documentationLink(c.references)} ${implementationGuideLink()}</div></td></tr>`;
+  }).join('');
+  el.innerHTML = `<h2 class="h3">Improvement areas</h2><p class="color-fg-muted">Ranked by priority (control weight × gap). Address High severity failures first. Supported setting changes require a separate implementation token and your approval.</p><div class="table-wrap" role="region" aria-label="Improvement areas table" tabindex="0"><table><thead><tr><th scope="col">#</th><th scope="col">Control</th><th scope="col">Pillar</th><th scope="col">Status</th><th scope="col">Severity</th><th scope="col">Finding &amp; recommendation</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  bindImplementationActions(el);
 }
 
 function renderControls() {
@@ -172,10 +254,11 @@ function renderControls() {
     <div class="table-wrap" role="region" aria-label="Controls table" tabindex="0"><table><thead><tr><th scope="col">Control</th><th scope="col">Pillar / area</th><th scope="col">Type</th><th scope="col">Weight</th><th scope="col">Status</th><th scope="col">Finding</th></tr></thead><tbody>${
     rows.map((c) => `<tr><td><strong>${esc(c.id)}</strong><br>${esc(c.title)}</td><td>${esc(pillarName(c.pillar))}<br><span class="color-fg-muted text-small">${esc(c.area)}</span></td><td>${esc(c.source)}</td><td>${c.weight}</td><td>${pill(c.status)}</td>
       <td>${esc(c.finding)}${c.notes ? `<div class="text-small color-fg-muted">Notes: ${esc(c.notes)}</div>` : ''}<details><summary>Recommendation</summary>${esc(c.remediation)}<div class="text-small">${refs(c.references)}</div></details>
-        ${c.status === 'pass' || c.status === 'not_applicable' ? '' : `<div class="implementation-actions"><button class="btn btn-sm" type="button" data-implement="${esc(c.id)}" aria-label="Implement ${esc(c.id)}: ${esc(c.title)}">Implement</button>
+        ${c.status === 'pass' || c.status === 'not_applicable' ? '' : `<div class="implementation-actions"><button class="btn btn-sm" type="button" data-task="${esc(c.id)}" aria-label="Download task for ${esc(c.id)}: ${esc(c.title)}">Download task</button>
+        ${AUTOMATED_IMPLEMENTATIONS[c.id] && implementationTargets(c).length ? `<button class="btn btn-sm btn-primary" type="button" data-apply="${esc(c.id)}">Apply supported setting</button>` : '<span class="color-fg-muted text-small">Manual implementation or task export only</span>'}
         ${documentationLink(c.references)} ${implementationGuideLink()}</div>`}</td></tr>`).join('')
   }</tbody></table></div>`;
-  bindImplementButtons(el);
+  bindImplementationActions(el);
   for (const id of ['f-pillar', 'f-status']) {
     el.querySelector(`#${id}`).addEventListener('change', () => {
       renderControls();
@@ -236,10 +319,11 @@ function renderGaps() {
     data.coverageGaps.map((g) => {
       const control = data.controls.find((item) => item.id === g.id);
       return `<tr><td><strong>${esc(g.id)}</strong><br>${esc(g.title)}</td><td>${esc(pillarName(g.pillar))}</td><td>${pill(g.status)}</td><td>${esc(g.finding)}
-        <div class="implementation-actions"><button class="btn btn-sm" type="button" data-implement="${esc(g.id)}" aria-label="Implement ${esc(g.id)}: ${esc(g.title)}">Implement</button>
+        <div class="implementation-actions"><button class="btn btn-sm" type="button" data-task="${esc(g.id)}" aria-label="Download task for ${esc(g.id)}: ${esc(g.title)}">Download task</button>
+        <span class="color-fg-muted text-small">Manual evidence review or task export only</span>
         ${documentationLink(control?.references)} ${implementationGuideLink()}</div></td></tr>`;
     }).join('')}</tbody></table></div>`;
-  bindImplementButtons(el);
+  bindImplementationActions(el);
 }
 
 function renderActions() {

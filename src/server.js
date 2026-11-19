@@ -3,10 +3,71 @@ import { readFileSync, writeFileSync, renameSync, existsSync } from 'node:fs';
 import { assess, normalizeAnswer } from './engine.js';
 import { renderHtml, renderMarkdown } from './report.js';
 import { readPrimerCss } from './web-assets.js';
+import { implementOrganizationSetting } from './implementations.js';
 
 const TEMPLATE_URL = new URL('./web/index.html', import.meta.url);
 const IMPLEMENTATION_GUIDE_URL = new URL('../docs/implementation-guide.md', import.meta.url);
+const OFFICIAL_UPDATES_URL = new URL('../docs/official-updates.md', import.meta.url);
 const MAX_BODY = 64 * 1024;
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+}
+
+function renderMarkdownPage(markdown, title) {
+  const inline = (text) => {
+    let html = '';
+    let last = 0;
+    const links = /\[([^\]]+)\]\(([^)]+)\)/g;
+    for (const match of text.matchAll(links)) {
+      html += escapeHtml(text.slice(last, match.index));
+      let href = null;
+      if (match[2] === 'official-updates.md') href = '/official-updates';
+      else {
+        try {
+          const parsed = new URL(match[2]);
+          if (parsed.protocol === 'https:') href = parsed.href;
+        } catch { /* leave unsupported links as text */ }
+      }
+      html += href
+        ? `<a href="${escapeHtml(href)}"${href.startsWith('https:') ? ' target="_blank" rel="noopener"' : ''}>${escapeHtml(match[1])}</a>`
+        : escapeHtml(match[1]);
+      last = match.index + match[0].length;
+    }
+    return html + escapeHtml(text.slice(last));
+  };
+  const blocks = [];
+  let listType = null;
+  const closeList = () => {
+    if (listType) blocks.push(`</${listType}>`);
+    listType = null;
+  };
+  for (const line of markdown.replace(/<!--[\s\S]*?-->/g, '').split(/\r?\n/)) {
+    const heading = line.match(/^(#{1,3})\s+(.+)$/);
+    const unordered = line.match(/^\s*[-*]\s+(.+)$/);
+    const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
+    if (!line.trim()) {
+      closeList();
+    } else if (heading) {
+      closeList();
+      const level = heading[1].length;
+      blocks.push(`<h${level}>${inline(heading[2])}</h${level}>`);
+    } else if (unordered || ordered) {
+      const type = unordered ? 'ul' : 'ol';
+      if (type !== listType) {
+        closeList();
+        blocks.push(`<${type}>`);
+        listType = type;
+      }
+      blocks.push(`<li>${inline((unordered || ordered)[1])}</li>`);
+    } else {
+      closeList();
+      blocks.push(`<p>${inline(line)}</p>`);
+    }
+  }
+  closeList();
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title><style>body{font:16px/1.6 system-ui,sans-serif;max-width:60rem;margin:2rem auto;padding:0 1rem;color:#1f2328}a{color:#0969da}nav{display:flex;gap:1rem;border-bottom:1px solid #d1d9e0;padding-bottom:1rem}li{margin:.35rem 0}main{padding-top:1rem}</style></head><body><nav><a href="/">Assessment dashboard</a><a href="/implementation-guide">Implementation guide</a><a href="/official-updates">Official updates</a></nav><main><h1>${escapeHtml(title)}</h1>${blocks.join('\n')}</main></body></html>`;
+}
 
 export function loadAnswers(path) {
   if (!path || !existsSync(path)) return {};
@@ -35,7 +96,7 @@ function readBody(req) {
   });
 }
 
-export function createServer({ rubric, evidence, answersPath, port }) {
+export function createServer({ rubric, evidence, answersPath, port, implementationFetch }) {
   const primerCss = readPrimerCss();
   let answers = loadAnswers(answersPath);
   const allowedHosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`]);
@@ -52,7 +113,8 @@ export function createServer({ rubric, evidence, answersPath, port }) {
     try {
       if (req.method === 'GET' && url.pathname === '/') return send(res, 200, readFileSync(TEMPLATE_URL, 'utf8'), 'text/html; charset=utf-8');
       if (req.method === 'GET' && url.pathname === '/primer.css') return send(res, 200, primerCss, 'text/css; charset=utf-8');
-      if (req.method === 'GET' && url.pathname === '/implementation-guide') return send(res, 200, readFileSync(IMPLEMENTATION_GUIDE_URL, 'utf8'), 'text/markdown; charset=utf-8');
+      if (req.method === 'GET' && url.pathname === '/implementation-guide') return send(res, 200, renderMarkdownPage(readFileSync(IMPLEMENTATION_GUIDE_URL, 'utf8'), 'Implementation guide'), 'text/html; charset=utf-8');
+      if (req.method === 'GET' && url.pathname === '/official-updates') return send(res, 200, renderMarkdownPage(readFileSync(OFFICIAL_UPDATES_URL, 'utf8'), 'Official GitHub updates'), 'text/html; charset=utf-8');
       if (req.method === 'GET' && url.pathname === '/api/assessment') return send(res, 200, JSON.stringify(current()), 'application/json');
       if (req.method === 'GET' && url.pathname === '/api/report.md') return send(res, 200, renderMarkdown(current()), 'text/markdown; charset=utf-8');
       if (req.method === 'GET' && url.pathname === '/api/report.html') return send(res, 200, renderHtml(current(), primerCss), 'text/html; charset=utf-8');
@@ -94,6 +156,34 @@ export function createServer({ rubric, evidence, answersPath, port }) {
         answers = { ...answers, [control.id]: normalized };
         if (answersPath) saveAnswers(answersPath, answers);
         return send(res, 200, JSON.stringify(current()), 'application/json');
+      }
+      if (req.method === 'POST' && url.pathname === '/api/implement') {
+        if (!String(req.headers['content-type']).startsWith('application/json')) return send(res, 415, 'Expected application/json', 'text/plain');
+        let body;
+        try {
+          body = JSON.parse(await readBody(req));
+        } catch (err) {
+          if (!(err instanceof SyntaxError)) throw err;
+          return send(res, 400, 'Invalid implementation request', 'text/plain');
+        }
+        if (!body || body.confirmed !== true || typeof body.controlId !== 'string' || typeof body.organization !== 'string' || typeof body.token !== 'string') {
+          return send(res, 400, 'Explicit confirmation, control, organization, and implementation token are required.', 'text/plain');
+        }
+        const assessment = current();
+        const control = assessment.controls.find((item) => item.id === body.controlId);
+        const orgResult = control?.details?.orgs?.find((item) => item.org === body.organization);
+        if (!['fail', 'partial'].includes(control?.status) || !['fail', 'partial'].includes(orgResult?.status)
+          || !assessment.meta.organizations.includes(body.organization)) {
+          return send(res, 409, 'Only a confirmed failing or partial organization finding can be implemented.', 'text/plain');
+        }
+        const result = await implementOrganizationSetting({
+          controlId: body.controlId,
+          organization: body.organization,
+          token: body.token,
+          apiUrl: evidence.meta?.apiUrl,
+          fetchImpl: implementationFetch,
+        });
+        return send(res, 200, JSON.stringify(result), 'application/json');
       }
       return send(res, 404, 'Not found', 'text/plain');
     } catch (err) {
