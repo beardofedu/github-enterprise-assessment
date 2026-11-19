@@ -22,7 +22,11 @@ export function hostForApiUrl(apiUrl) {
     : url.hostname;
 }
 
-const refreshCommand = (scopes, apiUrl) => `gh auth refresh -h ${hostForApiUrl(apiUrl)} -s ${scopes.join(',')}`;
+const refreshCommand = (scopes, apiUrl) => {
+  const host = hostForApiUrl(apiUrl);
+  const quotedHost = /^[a-z0-9.-]+$/i.test(host) ? host : "'" + host.replace(/'/g, "'\\''") + "'";
+  return `gh auth refresh -h ${quotedHost} -s ${scopes.join(',')}`;
+};
 
 function scopesForPath(path) {
   const clean = path.split('?')[0];
