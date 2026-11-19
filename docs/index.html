@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Use GitHub Enterprise Assessment to collect read-only evidence, complete a questionnaire, and prioritize improvements.">
+  <title>User guide | GitHub Enterprise Assessment</title>
+  <link rel="stylesheet" href="site.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header>
+    <nav aria-label="Main navigation">
+      <a class="brand" href="index.html">GitHub Enterprise Assessment</a>
+      <a href="index.html" aria-current="page">User guide</a>
+      <a href="changelog.html">Changelog</a>
+      <a href="https://github.com/beardofedu/github-enterprise-assessment">Source on GitHub</a>
+    </nav>
+  </header>
+  <main id="main">
+    <p class="eyebrow">Local-first · Read-only evidence</p>
+    <h1>Turn enterprise evidence into a practical improvement plan.</h1>
+    <p class="lead">Collect GitHub configuration evidence, add your team's process knowledge, and review prioritized findings across five Well-Architected pillars.</p>
+    <p class="notice">This site is documentation, not a hosted assessment service. Run the tool on your own machine. It uses an independently defined rubric and maturity model, not an official GitHub certification or a comprehensive security audit.</p>
+    <div class="toc" role="navigation" aria-label="On this page">
+      <a href="#quickstart">Try the demo</a>
+      <a href="#collect">Collect evidence</a>
+      <a href="#review">Review findings</a>
+      <a href="#questionnaire">Answer questions</a>
+      <a href="#coverage">Understand coverage</a>
+      <a href="#export">Export and act</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+    </div>
+
+    <section id="quickstart">
+      <h2>1. Try it without credentials</h2>
+      <p>Install Node.js 20 or later and npm. Clone the repository, install its dependencies, and start the bundled demo. No GitHub token is needed for the demo.</p>
+      <pre><code>git clone https://github.com/beardofedu/github-enterprise-assessment.git
+cd github-enterprise-assessment
+npm ci
+npm run demo</code></pre>
+      <p>Open <a href="http://127.0.0.1:4173">http://127.0.0.1:4173</a>. Demo answers are saved locally to <code>answers.demo.json</code>; stop the server with Ctrl+C. To start over, stop the demo and move that answers file aside before restarting.</p>
+      <div class="steps">
+        <div class="card"><h3>Collect</h3><p>Read enterprise and organization evidence through GitHub APIs, or explore the fictional demo.</p></div>
+        <div class="card"><h3>Assess</h3><p>Review automated checks and answer questions that need human context.</p></div>
+        <div class="card"><h3>Improve</h3><p>Export reports and manual tasks, agree on changes, then reassess.</p></div>
+      </div>
+      <p>All screenshots below come from the running tool using bundled fictional evidence and demo questionnaire answers. They do not show a real enterprise. Select an image to view it at full size.</p>
+      <figure>
+        <a href="images/demo-improvements.png"><img src="images/demo-improvements.png" width="1440" height="1050" alt="Demo assessment summary showing overall and pillar scores above prioritized improvement findings."></a>
+        <figcaption>The summary pairs scores with coverage. Improvement areas include findings, recommendations, documentation links, and manual task downloads.</figcaption>
+      </figure>
+    </section>
+
+    <section id="collect">
+      <h2>2. Collect your enterprise's evidence</h2>
+      <p>Authenticate with the GitHub CLI using an identity authorized to read the intended enterprise and organizations. Replace <code>YOUR_ENTERPRISE_SLUG</code> with the last part of your enterprise URL.</p>
+      <pre><code>gh auth login
+node bin/gh-waf-assess.js run --enterprise YOUR_ENTERPRISE_SLUG</code></pre>
+      <p>This writes <code>evidence.json</code> and opens a local dashboard server at <code>http://127.0.0.1:4173</code>. Questionnaire changes are saved to <code>answers.json</code>, and existing answers are loaded on startup. The tool looks for <code>GH_TOKEN</code>, then <code>GITHUB_TOKEN</code>, then <code>gh auth token</code>.</p>
+      <h3>Choose access and scope deliberately</h3>
+      <p>Use the least access appropriate for the assessment. Enterprise-owner or organization-owner permissions may be required for administrative settings. Classic token or GitHub CLI OAuth scopes may include <code>read:enterprise</code>, <code>read:org</code>, <code>repo</code>, <code>security_events</code>, and <code>read:audit_log</code>, depending on the checks. Audit-log streaming endpoints require a classic token with <code>read:audit_log</code>. Authorize SAML SSO where required. Fine-grained tokens may cover only some endpoints; GitHub App authentication is not implemented.</p>
+      <pre><code># Limit collection to explicitly selected organizations
+node bin/gh-waf-assess.js run --enterprise YOUR_ENTERPRISE_SLUG --orgs org-one,org-two
+
+# GitHub Enterprise Server: use credentials for that host
+gh auth login --hostname github.example.com
+GH_TOKEN="$(gh auth token --hostname github.example.com)" node bin/gh-waf-assess.js run \
+  --enterprise YOUR_ENTERPRISE_SLUG --api-url https://github.example.com/api/v3</code></pre>
+      <p>The default inventory limit is 1,000 repositories per organization; deep inspection samples 25 active repositories. Adjust <code>--max-repos</code> and <code>--sample</code> as needed. Samples, truncated inventories, and inaccessible settings are not comprehensive coverage. GitHub Enterprise Server API availability depends on the server version.</p>
+      <p class="notice"><strong>Keep assessment data private.</strong> Evidence, answers, reports, and notes may contain sensitive enterprise information. Do not commit them or upload them to GitHub Pages. The dashboard binds to loopback, and collection makes read-only GitHub API requests.</p>
+    </section>
+
+    <section id="review">
+      <h2>3. Review findings and controls</h2>
+      <p>Start in <strong>Improvement areas</strong>. Findings are ranked by control weight multiplied by the gap; review High severity failures first. Confirm the affected scope and linked guidance before deciding on a change.</p>
+      <p>Switch to <strong>All controls</strong> to see passes as well as incomplete and failed checks. Filter by pillar and status to focus your review. Expand evidence details where available.</p>
+      <figure>
+        <a href="images/demo-controls.png"><img src="images/demo-controls.png" width="1440" height="1050" loading="lazy" alt="All controls view filtered to the Governance pillar, with statuses, findings, and evidence details."></a>
+        <figcaption>Use pillar and status filters to narrow the control inventory. This example selects Governance.</figcaption>
+      </figure>
+      <h3>Read scores alongside coverage</h3>
+      <p>The bundled rubric includes 44 controls across Governance, Application Security, Architecture, Collaboration, and Productivity. Pass, partial, and fail contribute 1, 0.5, and 0, weighted by control importance. Unknown, unanswered, and not-applicable controls are excluded from scores. Coverage is the percentage of applicable controls that were scored.</p>
+      <p>Maturity labels are Initial (below 40), Developing (40 to below 60), Defined (60 to below 75), Managed (75 to below 90), and Optimized (90 to 100). A high score with low coverage is not a complete assessment.</p>
+    </section>
+
+    <section id="questionnaire">
+      <h2>4. Add the human context</h2>
+      <p>Open <strong>Questionnaire</strong> for controls that cannot be determined from the API. Choose Yes, Partial, No, or N/A and add notes that explain your evidence. Answers save automatically; notes save when you leave the field. Check for the save confirmation and resolve any error before closing the dashboard.</p>
+      <figure>
+        <a href="images/demo-questionnaire.png"><img src="images/demo-questionnaire.png" width="1440" height="1050" loading="lazy" alt="Questionnaire showing demo answers and supporting notes, including a partial access-review process."></a>
+        <figcaption>Fictional assessor notes demonstrate how to record context behind a questionnaire answer.</figcaption>
+      </figure>
+      <p>To resume a different answers file, start the dashboard with an explicit path:</p>
+      <pre><code>node bin/gh-waf-assess.js serve --evidence evidence.json --answers reviews/answers.json</code></pre>
+      <p>Or select <strong>Load answers.json</strong> in the dashboard. Import a JSON object keyed by control ID, not an exported assessment report. Matching answers and notes are updated; other answers and collected evidence are kept. Imports are saved to the configured answers file.</p>
+      <pre><code>{
+  "GOV-11": {
+    "answer": "partial",
+    "notes": "Demo: owners reviewed annually; collaborator review is pending."
+  },
+  "GOV-12": "yes"
+}</code></pre>
+      <p>Allowed answer values are <code>yes</code>, <code>partial</code>, <code>no</code>, and <code>na</code>. Imports must be no larger than 64 KiB, with notes of at most 4,000 characters per control. Invalid imports leave existing answers unchanged.</p>
+    </section>
+
+    <section id="coverage">
+      <h2>5. Resolve coverage gaps</h2>
+      <p><strong>Coverage gaps</strong> lists unknown or unanswered controls. These are missing evidence, not confirmed configuration failures. Review access errors, unsupported endpoints, and questionnaire items before interpreting the overall score.</p>
+      <figure>
+        <a href="images/demo-coverage.png"><img src="images/demo-coverage.png" width="1440" height="1050" loading="lazy" alt="Coverage gaps view listing controls that need more evidence or assessor answers and their recommended next steps."></a>
+        <figcaption>Follow up on missing evidence separately from confirmed failures. Recollect after fixing access, or supply an assessor answer where appropriate.</figcaption>
+      </figure>
+    </section>
+
+    <section id="export">
+      <h2>6. Export reports and plan improvements</h2>
+      <p>Download Markdown, JSON, or standalone HTML reports from the dashboard. HTML reports include their styling for offline viewing. Use <strong>Download task</strong> on a finding or gap to export a Markdown recommendation, reference links, and a review checklist.</p>
+      <p>Collection, dashboard actions, and task downloads never change GitHub settings. Agree on the intended policy with the relevant owners, apply approved changes through your normal change-control process, verify in GitHub, and collect fresh evidence.</p>
+      <h3>Collect and report separately</h3>
+      <pre><code>node bin/gh-waf-assess.js collect --enterprise YOUR_ENTERPRISE_SLUG --out evidence.json
+node bin/gh-waf-assess.js serve --evidence evidence.json --answers answers.json
+
+# After completing the questionnaire (stop the server with Ctrl+C first)
+node bin/gh-waf-assess.js assess --evidence evidence.json --answers answers.json \
+  --format html --out reports/assessment.html
+node bin/gh-waf-assess.js assess --evidence evidence.json --answers answers.json \
+  --format md --out reports/assessment.md
+node bin/gh-waf-assess.js assess --evidence evidence.json --answers answers.json \
+  --format json --out reports/assessment.json</code></pre>
+      <p>For automation, <code>--fail-under N</code> exits with code 2 when the overall score is below the threshold. Review coverage separately; the score alone does not establish completeness. Run <code>node bin/gh-waf-assess.js --help</code> for all options or <code>node bin/gh-waf-assess.js rubric</code> to list controls. A custom rubric can be supplied with <code>--rubric path/to/rubric.json</code>; new automated controls also require check implementations.</p>
+      <p>Read the <a href="https://github.com/beardofedu/github-enterprise-assessment/blob/main/docs/implementation-guide.md">implementation guide</a> and <a href="https://github.com/beardofedu/github-enterprise-assessment/blob/main/docs/official-updates.md">daily official GitHub updates digest</a> before applying changes. The digest tracks upstream GitHub guidance; the <a href="changelog.html">tool changelog</a> tracks this project.</p>
+    </section>
+
+    <section id="troubleshooting">
+      <h2>Troubleshooting</h2>
+      <dl>
+        <dt>The dashboard says Primer CSS is missing</dt>
+        <dd>Run <code>npm ci</code> from the application directory, then restart the dashboard.</dd>
+        <dt>The enterprise cannot be discovered</dt>
+        <dd>Confirm the enterprise slug, active identity, token scopes, and SSO authorization. Collection stops rather than silently changing scope. <code>--orgs org-one,org-two</code> chooses scope explicitly; <code>--use-token-orgs</code> opts into token-visible organizations, which may not match the enterprise.</dd>
+        <dt>The local port is already in use</dt>
+        <dd>Start with another port, for example <code>node bin/gh-waf-assess.js serve --demo --port 4174</code>, then open the URL printed in your terminal.</dd>
+        <dt>Answers did not load or save</dt>
+        <dd>Check the configured answers path, directory permissions, JSON shape, control IDs, and import limits. Use the dashboard's visible error message to correct the file; do not assume an unsuccessful import changed your answers.</dd>
+      </dl>
+      <p>Report reproducible problems using the <a href="https://github.com/beardofedu/github-enterprise-assessment/issues/new/choose">issue templates</a>, using fictional or sanitized data only. See the <a href="https://github.com/beardofedu/github-enterprise-assessment/blob/main/SECURITY.md">security policy</a> for private vulnerability reporting.</p>
+    </section>
+  </main>
+  <footer>Independent assessment tooling. Documentation on GitHub Pages; your assessment runs locally. <a href="https://github.com/beardofedu/github-enterprise-assessment/blob/main/LICENSE">MIT License</a>.</footer>
+</body>
+</html>
