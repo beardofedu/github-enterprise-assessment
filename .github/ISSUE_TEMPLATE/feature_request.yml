@@ -1,0 +1,26 @@
+name: Feature request
+description: Suggest an improvement to the project.
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please do not include credentials or sensitive enterprise information.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the use case and who would benefit.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe the improvement you would like to see.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or additional context

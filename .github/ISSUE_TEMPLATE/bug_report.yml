@@ -1,0 +1,41 @@
+name: Bug or accessibility report
+description: Report a reproducible problem or accessibility barrier.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please use fictional or sanitized data and remove credentials and sensitive
+        enterprise information. For security vulnerabilities, use
+        [private reporting](https://github.com/beardofedu/github-enterprise-assessment/security/advisories/new)
+        instead of this form.
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened?
+      description: Describe the problem or accessibility barrier.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include a minimal example using fictional or sanitized data.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include the project version or commit, Node.js version, operating system, browser, and assistive technology when relevant.
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Add sanitized logs or screenshots if they would help.

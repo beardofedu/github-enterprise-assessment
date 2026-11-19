@@ -92,3 +92,11 @@ npm run test:a11y
 ```
 
 The accessibility test requires Playwright's Chromium browser. If it is not installed yet, run `npx playwright install chromium`.
+
+## Community
+
+Contributions are welcome; see the [contribution guide](CONTRIBUTING.md) and
+[Code of Conduct](CODE_OF_CONDUCT.md). Read the [accessibility statement](ACCESSIBILITY.md)
+and [security policy](SECURITY.md) for reporting guidance.
+
+This project is available under the [MIT License](LICENSE).
