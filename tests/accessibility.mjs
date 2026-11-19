@@ -97,6 +97,25 @@ try {
     await assertPrimerStyles(page, `Desktop ${colorScheme}`);
     await axe(page, `Desktop ${colorScheme}`);
 
+    await page.getByRole("tab", { name: "Improvement areas" }).click();
+    const implement = page.locator("#tab-improvements [data-implement]").first();
+    assert.ok(await implement.count(), "missing items should have an Implement button");
+    await page.getByRole("tab", { name: "All controls" }).click();
+    const controls = await (await fetch(`${url}/api/assessment`)).json();
+    const missingCount = controls.controls.filter((control) => control.status !== "pass" && control.status !== "not_applicable").length;
+    assert.equal(await page.locator("#tab-controls [data-implement]").count(), missingCount);
+    await page.getByRole("tab", { name: "Improvement areas" }).click();
+    const downloadPromise = page.waitForEvent("download");
+    await implement.click();
+    const download = await downloadPromise;
+    assert.match(download.suggestedFilename(), /^[a-z0-9-]+-implementation\.md$/);
+    const stream = await download.createReadStream();
+    let task = "";
+    for await (const chunk of stream) task += chunk.toString();
+    assert.match(task, /^# Implement /);
+    assert.match(task, /This plan is generated locally/);
+    assert.ok(await page.locator("#tab-improvements a[href='/implementation-guide']").count());
+
     await page.getByRole("tab", { name: "Questionnaire" }).click();
     const firstQuestion = page.locator("#tab-questionnaire .q").first();
     await firstQuestion.getByRole("radio", { name: "Yes" }).check();

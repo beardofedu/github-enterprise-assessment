@@ -74,6 +74,8 @@ Pass, partial, and fail are scored as 1, 0.5, and 0, weighted by control importa
 
 To customize controls or scoring, copy `rubric/well-architected.json` and pass `--rubric path/to/rubric.json`. New automated controls also require a matching check implementation in `src/checks.js`.
 
+Use **Implement** on a finding or coverage gap to download a Markdown implementation task with its recommendation, references, and a review checklist. The dashboard is read-only and does not change GitHub settings; follow [`docs/implementation-guide.md`](docs/implementation-guide.md) and review the [daily official updates digest](docs/official-updates.md) before applying changes. A scheduled GitHub Actions workflow refreshes that digest from the GitHub Docs source repository, Changelog, and Blog each day.
+
 ## Privacy
 
 The dashboard binds to loopback and the collector only makes read-only GitHub API requests. Evidence, answers, and exported reports can contain sensitive enterprise configuration and assessor notes; keep them secure and do not commit them. Default output filenames are ignored by Git, but custom output paths may not be.

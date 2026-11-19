@@ -5,6 +5,7 @@ import { renderHtml, renderMarkdown } from './report.js';
 import { readPrimerCss } from './web-assets.js';
 
 const TEMPLATE_URL = new URL('./web/index.html', import.meta.url);
+const IMPLEMENTATION_GUIDE_URL = new URL('../docs/implementation-guide.md', import.meta.url);
 const MAX_BODY = 64 * 1024;
 
 export function loadAnswers(path) {
@@ -51,6 +52,7 @@ export function createServer({ rubric, evidence, answersPath, port }) {
     try {
       if (req.method === 'GET' && url.pathname === '/') return send(res, 200, readFileSync(TEMPLATE_URL, 'utf8'), 'text/html; charset=utf-8');
       if (req.method === 'GET' && url.pathname === '/primer.css') return send(res, 200, primerCss, 'text/css; charset=utf-8');
+      if (req.method === 'GET' && url.pathname === '/implementation-guide') return send(res, 200, readFileSync(IMPLEMENTATION_GUIDE_URL, 'utf8'), 'text/markdown; charset=utf-8');
       if (req.method === 'GET' && url.pathname === '/api/assessment') return send(res, 200, JSON.stringify(current()), 'application/json');
       if (req.method === 'GET' && url.pathname === '/api/report.md') return send(res, 200, renderMarkdown(current()), 'text/markdown; charset=utf-8');
       if (req.method === 'GET' && url.pathname === '/api/report.html') return send(res, 200, renderHtml(current(), primerCss), 'text/html; charset=utf-8');
