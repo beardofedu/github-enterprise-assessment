@@ -10,6 +10,8 @@
   "scripts": {
     "test": "node --test",
     "test:a11y": "node tests/accessibility.mjs",
+    "test:docs": "node tests/docs.mjs",
+    "docs:screenshots": "node bin/capture-docs-screenshots.mjs",
     "demo": "node bin/gh-waf-assess.js serve --demo",
     "start": "node bin/gh-waf-assess.js"
   },

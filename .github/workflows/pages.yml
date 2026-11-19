@@ -1,0 +1,55 @@
+name: Documentation site
+
+on:
+  push:
+    branches: [main]
+    paths: ['docs/**', 'bin/capture-docs-screenshots.mjs', 'tests/docs.mjs', 'package*.json', '.github/workflows/pages.yml']
+  pull_request:
+    paths: ['docs/**', 'bin/capture-docs-screenshots.mjs', 'tests/docs.mjs', 'package*.json', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:docs
+      - name: Stage public documentation only
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p _site/images
+          cp docs/index.html docs/changelog.html docs/site.css _site/
+          cp docs/images/demo-*.png _site/images/
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        with:
+          path: _site
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: check
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/configure-pages@v5
+      - name: Deploy documentation
+        id: deployment
+        uses: actions/deploy-pages@v4

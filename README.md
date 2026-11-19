@@ -4,6 +4,8 @@ A local dashboard and CLI for identifying improvement opportunities in a GitHub 
 
 This is an independently defined rubric and maturity model, not an official GitHub certification or a comprehensive security audit. Results are indicators for human review, not proof of compliance.
 
+Read the [user guide](https://beardofedu.github.io/github-enterprise-assessment/) for a screenshot walkthrough, setup, and troubleshooting, or browse the [changelog](https://beardofedu.github.io/github-enterprise-assessment/changelog.html).
+
 ![Example assessment dashboard using fictional demo evidence](docs/images/assessment-dashboard.png)
 
 ## Requirements
@@ -92,6 +94,14 @@ npm run test:a11y
 ```
 
 The accessibility test requires Playwright's Chromium browser. If it is not installed yet, run `npx playwright install chromium`.
+
+### Documentation site
+
+The static user guide and changelog live in [`docs/index.html`](docs/index.html) and [`docs/changelog.html`](docs/changelog.html). Open the HTML locally to preview; no site generator is required. Add user-facing changes to the changelog with links to the affected guide sections. Keep project changes separate from the upstream official updates digest.
+
+Run `npm run docs:screenshots` to refresh the four walkthrough screenshots from bundled fictional evidence and example answers. This requires Playwright Chromium, uses loopback port 4174, and cleans up its temporary answers. Never capture live enterprise data for the public site. Run `npm run test:docs` to check local links, screenshots, accessibility, and desktop/mobile reflow.
+
+In repository **Settings > Pages**, select **GitHub Actions** as the build source. The Documentation site workflow checks pull requests and deploys after changes merge to `main` (or a manual run on `main`). Only the explicitly staged HTML, CSS, and demo screenshots are published, not assessment outputs. The first deployment must finish before the documentation URL is available.
 
 ## Community
 
