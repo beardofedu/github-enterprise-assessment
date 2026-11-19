@@ -42,7 +42,8 @@ function renderMarkdownPage(markdown, title) {
     if (listType) blocks.push(`</${listType}>`);
     listType = null;
   };
-  for (const line of markdown.replace(/<!--[\s\S]*?-->/g, '').split(/\r?\n/)) {
+  const lines = markdown.split(/\r?\n/).filter((line) => !['<!-- official-updates:start -->', '<!-- official-updates:end -->'].includes(line.trim()));
+  for (const line of lines) {
     const heading = line.match(/^(#{1,3})\s+(.+)$/);
     const unordered = line.match(/^\s*[-*]\s+(.+)$/);
     const ordered = line.match(/^\s*\d+\.\s+(.+)$/);
