@@ -103,7 +103,7 @@ export function assess({ rubric, evidence, answers = {}, checks = builtInChecks 
 
   const improvements = controls
     .filter((c) => c.score != null && c.score < 1)
-    .map((c) => ({ id: c.id, pillar: c.pillar, area: c.area, title: c.title, status: c.status, severity: c.severity, priority: Math.round(c.weight * (1 - c.score) * 100) / 100, finding: c.finding, remediation: c.remediation, references: c.references }))
+    .map((c) => ({ id: c.id, pillar: c.pillar, area: c.area, title: c.title, status: c.status, severity: c.severity, priority: Math.round(c.weight * (1 - c.score) * 100) / 100, finding: c.finding, remediation: c.remediation, benefits: c.benefits, considerations: c.considerations, references: c.references }))
     .sort((a, b) => b.priority - a.priority || a.id.localeCompare(b.id));
 
   const coverageGaps = controls

@@ -56,6 +56,8 @@
       "weight": 3,
       "description": "Centralized identity through SAML SSO or OIDC (Enterprise Managed Users) ties GitHub access to your corporate identity lifecycle.",
       "remediation": "Configure SAML SSO at the enterprise level (or adopt Enterprise Managed Users with OIDC) and pair it with SCIM provisioning so joiners, movers, and leavers are handled automatically.",
+      "benefits": "Joiners, movers, and leavers are handled in one place, access is revoked when employment ends, and IdP controls such as conditional access and MFA apply to GitHub.",
+      "considerations": "SAML/SCIM setup requires IdP admin time and careful rollout to avoid lockouts. Enterprise Managed Users requires a new enterprise and blocks public contributions from managed accounts, so open-source-heavy teams may prefer SAML with personal accounts.",
       "references": ["https://learn.github.com/well-architected/library/governance/recommendations/governance-administration-essentials/"]
     },
     {
@@ -65,8 +67,10 @@
       "title": "Two-factor authentication is required",
       "type": "automated",
       "weight": 3,
-      "description": "Requiring 2FA (or delegating it to an IdP) protects accounts from credential stuffing and phishing.",
-      "remediation": "Enable the enterprise policy that requires two-factor authentication for all organizations, or enforce MFA through your identity provider.",
+      "description": "Requiring 2FA protects accounts from credential stuffing and phishing.",
+      "remediation": "Enable the enterprise policy that requires two-factor authentication for all organizations. For Enterprise Managed Users, enforce MFA through your identity provider.",
+      "benefits": "Stolen passwords alone can no longer compromise accounts that hold source code, secrets, and deployment access.",
+      "considerations": "With SAML SSO and personal accounts, users still sign in to GitHub separately, so IdP MFA does not replace GitHub 2FA. Enterprise Managed Users can rely on IdP-enforced MFA. When the policy is enforced, members without 2FA retain their organization membership and seats but lose access; outside collaborators are removed. Communicate and audit first.",
       "references": ["https://learn.github.com/well-architected/library/application-security/checklist/"]
     },
     {
@@ -78,6 +82,8 @@
       "weight": 3,
       "description": "Streaming the audit log to a SIEM or storage endpoint gives you retention beyond GitHub's defaults and enables alerting on unusual activity.",
       "remediation": "Configure enterprise audit log streaming to your SIEM (Splunk, Azure Event Hubs, Datadog, S3, etc.) and build alerts for high-risk events.",
+      "benefits": "Centralized, tamper-resistant retention supports investigations, compliance evidence, and real-time alerting beyond GitHub's built-in retention window.",
+      "considerations": "Streaming adds SIEM ingestion and storage cost, and value depends on someone building and triaging alerts. Small or low-risk enterprises may start with periodic exports instead.",
       "references": ["https://learn.github.com/well-architected/library/governance/checklist/"]
     },
     {
@@ -89,6 +95,8 @@
       "weight": 1,
       "description": "Restricting access to known network ranges reduces the blast radius of leaked credentials.",
       "remediation": "Enable the enterprise IP allow list (or your IdP's conditional access policy) for corporate network ranges and approved GitHub Apps.",
+      "benefits": "Stolen credentials or tokens cannot be used from outside approved networks, limiting the blast radius of credential leaks.",
+      "considerations": "Remote workers, GitHub-hosted runners, and third-party integrations may need explicit allowances; misconfiguration can block legitimate work. Enabling an organization IP allow list prevents Codespaces use for that organization's repositories, and adding Codespaces IP addresses does not preserve access. Teams with strong IdP conditional access may get similar protection with less upkeep.",
       "references": ["https://learn.github.com/well-architected/library/application-security/checklist/"]
     },
     {
@@ -100,6 +108,8 @@
       "weight": 2,
       "description": "Organization base permissions of 'none' or 'read' avoid granting every member write or admin access to every repository.",
       "remediation": "Set the base repository permission to 'No permission' or 'Read' and grant elevated access through teams.",
+      "benefits": "Least privilege reduces accidental or malicious changes and makes access intentional and reviewable through teams.",
+      "considerations": "Lower base permissions can reduce InnerSource discovery and add access requests. Organizations that value open internal collaboration may keep Read while restricting Write.",
       "references": ["https://learn.github.com/well-architected/library/governance/recommendations/governance-policies-best-practices/"]
     },
     {
@@ -111,6 +121,8 @@
       "weight": 2,
       "description": "Preventing members from creating public repositories avoids accidental exposure of proprietary code.",
       "remediation": "Disable public repository creation for members at the enterprise or organization level and provide a reviewed process for open-source publishing.",
+      "benefits": "Prevents accidental exposure of proprietary code and secrets by requiring review before anything becomes public.",
+      "considerations": "Adds friction for teams that publish open source often. Provide a fast, documented publishing path, or use a separate organization for open-source work.",
       "references": ["https://learn.github.com/well-architected/library/governance/recommendations/governance-policies-best-practices/"]
     },
     {
@@ -122,6 +134,8 @@
       "weight": 3,
       "description": "Active organization rulesets that require pull requests on default branches enforce code review consistently across repositories.",
       "remediation": "Create an active organization ruleset targeting ~DEFAULT_BRANCH across all repositories that requires pull requests and approving reviews.",
+      "benefits": "Consistent, centrally managed protection ensures every change to production code is reviewed, without relying on each repository owner.",
+      "considerations": "Mandatory reviews can slow small teams, solo maintainers, or automation-driven repositories. Use bypass lists, evaluate mode, or targeting by custom properties to roll out gradually.",
       "references": ["https://learn.github.com/well-architected/library/governance/checklist/"]
     },
     {
@@ -133,6 +147,8 @@
       "weight": 2,
       "description": "Required status checks ensure CI and compliance checks pass before code merges.",
       "remediation": "Add a 'Require status checks to pass' rule (or required workflows) to your organization rulesets.",
+      "benefits": "Broken builds and failing tests are blocked before merge, protecting the default branch and downstream consumers.",
+      "considerations": "Repositories without CI or with flaky checks will be blocked. Stabilize pipelines and target the rule at repositories that already run CI before enforcing broadly.",
       "references": ["https://learn.github.com/well-architected/library/governance/checklist/"]
     },
     {
@@ -144,6 +160,8 @@
       "weight": 2,
       "description": "Custom properties (e.g. owner, data classification, compliance scope) allow targeted policies and reporting at scale.",
       "remediation": "Define organization custom properties for ownership and classification and use them to target rulesets and security configurations.",
+      "benefits": "Metadata such as owner, criticality, and data classification lets you target policies precisely and report on the portfolio.",
+      "considerations": "Properties need an agreed taxonomy and ongoing upkeep; stale values can misapply policies. Very small organizations may not need the overhead yet.",
       "references": ["https://learn.github.com/well-architected/library/governance/recommendations/managing-repositories-at-scale/"]
     },
     {
@@ -155,6 +173,8 @@
       "weight": 2,
       "description": "A small number of organization owners limits privileged access and makes accountability clear.",
       "remediation": "Reduce organization owners to a small, named group and delegate day-to-day administration with custom organization roles.",
+      "benefits": "Fewer owners shrink the number of high-privilege accounts that can change security settings, delete repositories, or exfiltrate data.",
+      "considerations": "Too few owners creates a bottleneck and single points of failure. Keep at least two to three named owners and delegate via custom roles.",
       "references": ["https://learn.github.com/well-architected/library/governance/recommendations/governance-administration-essentials/"]
     },
     {
@@ -166,6 +186,8 @@
       "weight": 2,
       "question": "Do you run periodic (e.g. quarterly) reviews of enterprise owners, organization owners, outside collaborators, and team membership, and remediate findings?",
       "remediation": "Schedule recurring access reviews using audit log and membership exports; document and remediate discrepancies.",
+      "benefits": "Regular reviews catch privilege creep, departed users, and orphaned access that automation misses, and provide compliance evidence.",
+      "considerations": "Manual reviews take recurring effort. If SCIM and team-based access are fully automated from the IdP, lighter-weight or risk-based reviews may suffice.",
       "references": ["https://learn.github.com/well-architected/library/governance/checklist/"]
     },
     {
@@ -177,6 +199,8 @@
       "weight": 2,
       "question": "Are your GitHub governance policies (roles, repository standards, enterprise settings) documented, owned, and reviewed with stakeholders on a regular cadence?",
       "remediation": "Publish a governance policy with named owners, a review cadence, and a feedback channel for developers.",
+      "benefits": "Documented, owned policies make expectations clear to developers and auditors and give a path to change them.",
+      "considerations": "Policies that are written but not maintained or enforced add little value; keep them short and tied to enforced settings.",
       "references": ["https://learn.github.com/well-architected/library/governance/recommendations/governance-policies-best-practices/"]
     },
     {
@@ -188,6 +212,8 @@
       "weight": 2,
       "question": "Do you back up critical repositories and configuration (or GHES appliances) and regularly test restoration?",
       "remediation": "Implement backups (GitHub Enterprise Server Backup Utilities or repository mirroring for GHEC) and run restore drills.",
+      "benefits": "Tested restores prove you can recover from deletion, corruption, or ransomware within business expectations.",
+      "considerations": "Backups and drills add infrastructure and staff time. On GitHub Enterprise Cloud, GitHub manages platform durability, so focus on protection against user error and compliance needs rather than full platform backups.",
       "references": ["https://learn.github.com/well-architected/library/architecture/recommendations/building-resilience-with-repository-mirroring/"]
     },
     {
@@ -199,6 +225,8 @@
       "weight": 2,
       "question": "Is there a documented, tested incident response procedure for compromised GitHub accounts, leaked tokens, or policy violations?",
       "remediation": "Document runbooks for credential revocation, audit log investigation, and communication; test them through tabletop exercises.",
+      "benefits": "Prepared runbooks shorten response time when tokens leak, accounts are compromised, or policies are violated.",
+      "considerations": "Requires coordination with security teams and periodic exercises. Fold GitHub scenarios into existing incident processes rather than creating a separate program.",
       "references": ["https://learn.github.com/well-architected/library/governance/checklist/"]
     },
     {
@@ -210,6 +238,8 @@
       "weight": 2,
       "question": "Do you have defined policies for Copilot features, coding agents, MCP servers, and AI credit budgets, with owners who review them?",
       "remediation": "Define enterprise Copilot and agent policies, budgets, and an approval process for new AI capabilities.",
+      "benefits": "Clear policies and budgets let teams adopt AI safely while controlling cost, data exposure, and agent permissions.",
+      "considerations": "Overly restrictive approval processes can slow adoption and push developers to unmanaged tools. Start with sensible defaults and expand as you learn.",
       "references": ["https://learn.github.com/well-architected/library/governance/recommendations/governing-agents/"]
     },
     {
@@ -221,6 +251,8 @@
       "weight": 3,
       "description": "Secret scanning detects credentials committed to repositories.",
       "remediation": "Apply a code security configuration that enables secret scanning for all repositories.",
+      "benefits": "Detects leaked credentials across code and history so they can be revoked before attackers use them.",
+      "considerations": "Requires GitHub Secret Protection licensing for private repositories and creates an initial alert backlog that needs owners. Plan triage capacity before enabling everywhere.",
       "references": ["https://learn.github.com/well-architected/library/application-security/recommendations/enforce-ghas-at-scale/"]
     },
     {
@@ -232,6 +264,8 @@
       "weight": 3,
       "description": "Push protection blocks secrets before they reach the repository.",
       "remediation": "Enable push protection in your code security configuration and define a bypass review process.",
+      "benefits": "Blocks secrets before they reach the repository, which is far cheaper than rotating them after exposure.",
+      "considerations": "Developers may hit blocks for test or false-positive values; define a fast bypass and review process so it does not become a workflow obstacle.",
       "references": ["https://learn.github.com/well-architected/library/application-security/recommendations/enforce-ghas-at-scale/"]
     },
     {
@@ -243,6 +277,8 @@
       "weight": 2,
       "description": "Automated security updates open pull requests to fix vulnerable dependencies.",
       "remediation": "Enable Dependabot alerts and security updates through a code security configuration.",
+      "benefits": "Automated pull requests patch known vulnerable dependencies quickly with minimal developer effort.",
+      "considerations": "Can generate many pull requests in large or legacy repositories and updates may break builds. Use grouping, schedules, and auto-triage rules, and ensure CI exists to validate updates.",
       "references": ["https://learn.github.com/well-architected/library/application-security/recommendations/managing-dependency-threats/"]
     },
     {
@@ -254,6 +290,8 @@
       "weight": 3,
       "description": "Code scanning finds vulnerabilities in first-party code during development.",
       "remediation": "Enable code scanning default setup in an organization code security configuration and apply it to all repositories.",
+      "benefits": "Finds vulnerabilities in first-party code early, with low setup effort through default setup.",
+      "considerations": "Requires GitHub Code Security licensing for private repositories, consumes Actions minutes, and does not support every language or build. Repositories with custom builds may need advanced setup instead.",
       "references": ["https://learn.github.com/well-architected/library/application-security/recommendations/enforce-ghas-at-scale/"]
     },
     {
@@ -265,6 +303,8 @@
       "weight": 2,
       "description": "Default configurations ensure new repositories are secure by default.",
       "remediation": "Mark a code security configuration as the default for new repositories in every organization.",
+      "benefits": "New repositories are secure by default, so coverage does not depend on each creator remembering to enable features.",
+      "considerations": "Default configurations apply licensed features to every new repository, which affects cost. Use separate configurations for sandbox or archival organizations if needed.",
       "references": ["https://learn.github.com/well-architected/library/application-security/recommendations/enforce-ghas-at-scale/"]
     },
     {
@@ -276,6 +316,8 @@
       "weight": 2,
       "description": "A growing backlog of open critical/high alerts signals vulnerability management is not keeping pace.",
       "remediation": "Prioritize alerts using EPSS/severity, auto-triage rules, and security campaigns; set remediation SLAs.",
+      "benefits": "A managed backlog lowers exploitable exposure and shows auditors that vulnerabilities are handled within defined timeframes.",
+      "considerations": "Clearing backlogs competes with feature work; unrealistic SLAs get ignored. Prioritize by exploitability (EPSS) and runtime exposure rather than raw counts.",
       "references": ["https://learn.github.com/well-architected/library/application-security/recommendations/prioritizing-alerts/"]
     },
     {
@@ -287,6 +329,8 @@
       "weight": 3,
       "description": "Open secret scanning alerts may represent live credentials.",
       "remediation": "Revoke and rotate exposed secrets, then close alerts; track time-to-remediate.",
+      "benefits": "Every open secret alert may be a live credential; rotating and closing them removes real attack paths.",
+      "considerations": "Rotation can require coordination with external providers and downtime planning. Some alerts are test data or already revoked and only need to be closed with a reason.",
       "references": ["https://learn.github.com/well-architected/library/application-security/recommendations/prioritizing-alerts/"]
     },
     {
@@ -298,6 +342,8 @@
       "weight": 2,
       "description": "Allowing any marketplace action exposes workflows to supply-chain risk.",
       "remediation": "Restrict allowed actions to GitHub-authored, verified creators, and an explicit allow list; pin actions to full SHAs.",
+      "benefits": "Reduces supply-chain risk from malicious or compromised third-party actions; SHA pinning prevents silent tag changes.",
+      "considerations": "Allow lists need a request-and-review process, and pinning requires tooling such as Dependabot to stay current. Very permissive innovation-focused teams may start with verified creators only.",
       "references": ["https://learn.github.com/well-architected/library/application-security/recommendations/actions-security/"]
     },
     {
@@ -309,6 +355,8 @@
       "weight": 2,
       "description": "Read-only default workflow permissions limit the impact of compromised workflows.",
       "remediation": "Set default workflow permissions to read-only and prevent Actions from approving pull requests.",
+      "benefits": "Read-only defaults limit damage if a workflow or dependency is compromised, and force workflows to request only the permissions they need.",
+      "considerations": "Existing workflows that rely on write access will fail until they declare explicit permissions. Audit workflows and roll out per organization.",
       "references": ["https://learn.github.com/well-architected/library/application-security/recommendations/actions-security/"]
     },
     {
@@ -320,6 +368,8 @@
       "weight": 1,
       "description": "A default SECURITY.md in the organization's .github repository tells people how to report vulnerabilities.",
       "remediation": "Add SECURITY.md to each organization's .github repository so it applies to all repositories by default.",
+      "benefits": "Gives researchers and users a clear, trusted way to report vulnerabilities privately.",
+      "considerations": "Low effort, but only useful if the listed contact is monitored. Internal-only enterprises with no external users may treat this as lower priority.",
       "references": ["https://learn.github.com/well-architected/library/application-security/checklist/"]
     },
     {
@@ -331,6 +381,8 @@
       "weight": 2,
       "question": "Do teams perform threat modeling for critical applications and the software supply chain (including CI/CD)?",
       "remediation": "Adopt a lightweight threat modeling process for new services and significant changes.",
+      "benefits": "Identifies design-level risks early, when they are cheapest to fix.",
+      "considerations": "Heavyweight processes slow delivery; use lightweight, risk-based threat modeling and reserve deep reviews for critical systems.",
       "references": ["https://learn.github.com/well-architected/library/application-security/recommendations/threat-model/"]
     },
     {
@@ -342,6 +394,8 @@
       "weight": 2,
       "question": "Is there a security champions network and recurring secure-coding training for developers?",
       "remediation": "Establish security champions in each team and provide recurring secure-coding training tied to real alert data.",
+      "benefits": "Embeds security knowledge in teams, improving fix rates and reducing repeated vulnerability patterns.",
+      "considerations": "Champions need dedicated time and management support; without it the program becomes nominal.",
       "references": ["https://learn.github.com/well-architected/library/application-security/checklist/"]
     },
     {
@@ -353,6 +407,8 @@
       "weight": 1,
       "question": "Are developer environments (Codespaces, local machines, IDE extensions, tokens) governed with policies such as token expiration and approved extensions?",
       "remediation": "Enforce fine-grained token policies, PAT expiration, and secure workspace baselines.",
+      "benefits": "Limits long-lived, over-scoped tokens and insecure environments that attackers target to reach source code.",
+      "considerations": "Token expiration and approval policies can disrupt automation using personal tokens; migrate integrations to GitHub Apps first.",
       "references": ["https://learn.github.com/well-architected/library/application-security/recommendations/securing-developer-workspace/"]
     },
     {
@@ -364,6 +420,8 @@
       "weight": 2,
       "description": "Runner groups scoped to specific repositories and blocked from public repositories prevent untrusted code from running on internal infrastructure.",
       "remediation": "Organize self-hosted runners into runner groups with selected-repository visibility and disallow public repositories; prefer ephemeral runners (e.g. ARC).",
+      "benefits": "Prevents untrusted code from running on internal infrastructure and limits which repositories can reach sensitive runners.",
+      "considerations": "Runner groups and ephemeral runners add operational complexity. If you only use GitHub-hosted runners, this control may not apply.",
       "references": ["https://learn.github.com/well-architected/library/architecture/recommendations/deploying-actions-runner-controller/"]
     },
     {
@@ -375,6 +433,8 @@
       "weight": 1,
       "description": "Stale, unarchived repositories add noise, cost, and security exposure.",
       "remediation": "Archive repositories with no pushes in 12+ months after confirming with owners; automate the lifecycle with custom properties.",
+      "benefits": "Archiving reduces attack surface, alert noise, and clutter while preserving history.",
+      "considerations": "Some quiet repositories are stable and still used (libraries, configuration). Confirm with owners and avoid relying on push dates alone.",
       "references": ["https://learn.github.com/well-architected/library/governance/recommendations/managing-repositories-at-scale/"]
     },
     {
@@ -386,6 +446,8 @@
       "weight": 2,
       "question": "Do you have a documented disaster recovery plan for your GitHub platform and CI/CD (including RTO/RPO) that is tested at least annually?",
       "remediation": "Define RTO/RPO for source control and CI/CD, document the plan, and test it on a schedule.",
+      "benefits": "Defined RTO/RPO and tested plans ensure delivery can continue during outages.",
+      "considerations": "Full DR testing is costly; scale effort to business criticality. GitHub Enterprise Cloud customers focus on CI/CD and integration dependencies rather than hosting.",
       "references": ["https://learn.github.com/well-architected/library/architecture/recommendations/designing-resilient-ci-cd/"]
     },
     {
@@ -397,6 +459,8 @@
       "weight": 2,
       "question": "Do you monitor GitHub platform health (runner capacity, Actions queue times, API rate limits, GHES appliance metrics) with alerting?",
       "remediation": "Collect platform metrics (runner queue time, job failures, rate limits) into your observability stack with alert thresholds.",
+      "benefits": "Early detection of queue backlogs, failures, and rate limits prevents developer downtime.",
+      "considerations": "Requires observability tooling and alert tuning to avoid noise. Small installations may rely on GitHub status and built-in insights initially.",
       "references": ["https://learn.github.com/well-architected/library/architecture/checklist/"]
     },
     {
@@ -408,6 +472,8 @@
       "weight": 1,
       "question": "Are CI/CD pipelines resilient to dependency outages (caching, mirrors, retries) and free of single points of failure?",
       "remediation": "Add dependency caching/mirrors, retries, and redundant runner capacity to critical pipelines.",
+      "benefits": "Caching, retries, and redundancy keep releases flowing during transient failures or upstream outages.",
+      "considerations": "Adds complexity and cost; retries can mask real problems. Focus on business-critical pipelines first.",
       "references": ["https://learn.github.com/well-architected/library/architecture/recommendations/designing-resilient-ci-cd/"]
     },
     {
@@ -419,6 +485,8 @@
       "weight": 1,
       "question": "Where workflows need private resources, do you use GitHub-hosted runners with private networking (Azure VNET) or equivalent controlled connectivity?",
       "remediation": "Adopt hosted runner private networking or well-scoped self-hosted runners instead of opening inbound firewall rules.",
+      "benefits": "Private networking keeps build traffic off the public internet and avoids broad inbound firewall rules.",
+      "considerations": "Requires Azure private networking or self-hosted infrastructure and network team involvement. Not needed if builds never access private resources.",
       "references": ["https://learn.github.com/well-architected/library/architecture/recommendations/hosted-runner-private-networking/"]
     },
     {
@@ -430,6 +498,8 @@
       "weight": 2,
       "description": "CODEOWNERS files make ownership explicit and route reviews automatically.",
       "remediation": "Add CODEOWNERS to active repositories and require code owner review in rulesets.",
+      "benefits": "Clear ownership routes reviews to the right people automatically and makes accountability visible.",
+      "considerations": "Owner files go stale as teams change, and required code owner review can stall merges when owners are unavailable. Use team (not individual) owners.",
       "references": ["https://learn.github.com/well-architected/library/collaboration/checklist/"]
     },
     {
@@ -441,6 +511,8 @@
       "weight": 1,
       "description": "Descriptions and topics make repositories discoverable for InnerSource reuse.",
       "remediation": "Require descriptions (and topics or custom properties) for active repositories; report on gaps.",
+      "benefits": "Descriptions and topics help developers find and reuse existing work instead of duplicating it.",
+      "considerations": "Minor effort, but enforcement across thousands of repositories needs automation; prioritize active repositories.",
       "references": ["https://learn.github.com/well-architected/library/collaboration/checklist/"]
     },
     {
@@ -452,6 +524,8 @@
       "weight": 1,
       "description": "A .github repository with CONTRIBUTING guidance sets consistent expectations across repositories.",
       "remediation": "Create a .github repository in each organization with CONTRIBUTING.md, issue templates, and a profile README.",
+      "benefits": "Organization-wide defaults give every repository consistent contribution guidance and templates with no per-repository work.",
+      "considerations": "Generic templates may not fit specialized repositories; allow repositories to override defaults where needed.",
       "references": ["https://learn.github.com/well-architected/library/collaboration/checklist/"]
     },
     {
@@ -463,6 +537,8 @@
       "weight": 2,
       "question": "Do you run an InnerSource or GitHub champions program that encourages cross-team contribution and shares best practices?",
       "remediation": "Launch a champions program with clear roles, regular syncs, and recognition.",
+      "benefits": "Champions spread practices, surface feedback, and accelerate adoption across teams.",
+      "considerations": "Requires sponsorship and recognition; small organizations may get the same benefit from informal communities.",
       "references": ["https://learn.github.com/well-architected/library/collaboration/recommendations/champion-program/"]
     },
     {
@@ -474,6 +550,8 @@
       "weight": 1,
       "question": "Do teams share reusable workflows, templates, and actions from a central, versioned source?",
       "remediation": "Publish reusable workflows and template repositories in a central location with versioning and ownership.",
+      "benefits": "Shared, versioned workflows reduce duplication, speed onboarding, and make security fixes apply everywhere at once.",
+      "considerations": "Central assets need owners, versioning, and backward compatibility; breaking changes can affect many repositories at once.",
       "references": ["https://learn.github.com/well-architected/library/collaboration/recommendations/scaling-actions-reusability/"]
     },
     {
@@ -485,6 +563,8 @@
       "weight": 2,
       "description": "Repositories with CI workflows get faster, more consistent feedback.",
       "remediation": "Provide starter workflows and reusable workflows so active repositories run CI on every pull request.",
+      "benefits": "CI on every pull request catches defects early and enables rulesets that require status checks.",
+      "considerations": "Actions usage consumes minutes or runner capacity. Teams already standardized on another CI system may integrate it via status checks instead.",
       "references": ["https://learn.github.com/well-architected/library/productivity/recommendations/effective-ci/"]
     },
     {
@@ -496,6 +576,8 @@
       "weight": 2,
       "description": "Assigned Copilot seats that are active in the current billing cycle indicate healthy adoption.",
       "remediation": "Run enablement for inactive seat holders, reclaim unused seats, and track adoption with Copilot metrics.",
+      "benefits": "Higher utilization turns license spend into measurable productivity gains.",
+      "considerations": "Some roles benefit less from Copilot; reclaiming seats too aggressively can frustrate occasional users. Pair metrics with enablement before removing access.",
       "references": ["https://learn.github.com/well-architected/library/productivity/recommendations/adopting-copilot-at-scale/"]
     },
     {
@@ -507,6 +589,8 @@
       "weight": 2,
       "question": "Do you track balanced engineering system metrics (e.g. DORA, SPACE, developer experience surveys) and act on them?",
       "remediation": "Choose balanced metrics across quality, velocity, and developer happiness; review them regularly.",
+      "benefits": "Balanced metrics show where to invest and avoid optimizing speed at the expense of quality or wellbeing.",
+      "considerations": "Metrics can be gamed or misused for individual performance evaluation; use them at the team level and pair with qualitative feedback.",
       "references": ["https://learn.github.com/well-architected/library/productivity/recommendations/engineering-system-metrics/"]
     },
     {
@@ -518,6 +602,8 @@
       "weight": 1,
       "question": "Do you collect developer feedback on the platform and visibly act on it?",
       "remediation": "Create feedback channels (surveys, discussions), publish outcomes, and integrate improvements into the platform roadmap.",
+      "benefits": "Acting on developer feedback improves platform adoption and trust.",
+      "considerations": "Collecting feedback without acting on it erodes trust; only launch channels you can staff and respond to.",
       "references": ["https://learn.github.com/well-architected/library/productivity/checklist/"]
     },
     {
@@ -529,6 +615,8 @@
       "weight": 1,
       "question": "Do developers have structured learning paths for GitHub, Actions, security, and Copilot?",
       "remediation": "Provide learning paths, office hours, and certifications for GitHub features.",
+      "benefits": "Continuous learning increases feature adoption and return on the GitHub investment.",
+      "considerations": "Requires content and time investment; reuse GitHub Learn and official resources before building custom material.",
       "references": ["https://learn.github.com/well-architected/library/productivity/checklist/"]
     }
   ]

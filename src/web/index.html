@@ -34,6 +34,7 @@
   .q-options label { display: inline-flex; align-items: center; gap: .25rem; margin-right: .75rem; }
   .q textarea { min-height: 4rem; width: min(100%, 48rem); }
   .remediation { margin-top: .375rem; }
+  .rationale { margin-top: .375rem; }
   .implementation-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: .5rem; }
   .finding-link { min-height: 24px; text-align: left; text-decoration: underline; white-space: normal; }
   .copy-command { display: flex; align-items: flex-start; gap: .5rem; margin-top: .5rem; }
@@ -194,6 +195,8 @@ function downloadTask(control) {
       '',
       control.remediation || 'Review the control guidance and define an appropriate implementation.',
       '',
+      ...(control.benefits ? ['## Why implement it', '', control.benefits, ''] : []),
+      ...(control.considerations ? ['## Considerations and when it may not fit', '', control.considerations, ''] : []),
       '## References',
       '',
       ...(links.length ? links.map((url) => `- ${url}`) : ['- No external references were provided for this control.']),
@@ -325,13 +328,17 @@ function renderSummary() {
   }));
 }
 
+function rationale(c) {
+  return `${c.benefits ? `<div class="rationale"><strong>Why implement it:</strong> ${esc(c.benefits)}</div>` : ''}${c.considerations ? `<div class="rationale"><strong>Considerations / when it may not fit:</strong> ${esc(c.considerations)}</div>` : ''}`;
+}
+
 function renderImprovements() {
   const el = document.getElementById('tab-improvements');
   if (!data.improvements.length) { el.innerHTML = '<h2 class="h3">Improvement areas</h2><p class="color-fg-muted">No improvement areas identified among assessed controls.</p>'; return; }
   const rows = data.improvements.map((c, i) => {
     const control = data.controls.find((item) => item.id === c.id);
     return `<tr><td>${i + 1}</td><td><strong>${esc(c.id)}</strong><br>${esc(c.title)}</td><td>${esc(pillarName(c.pillar))}<br><span class="color-fg-muted text-small">${esc(c.area)}</span></td><td>${pill(c.status)}</td><td><span class="Label ${c.severity === 'High' ? 'Label--danger' : c.severity === 'Medium' ? 'Label--attention' : 'Label--secondary'}">${esc(c.severity)}</span></td>
-      <td>${findingText(control || c)}<div class="remediation"><strong>Recommendation:</strong> ${esc(c.remediation)}</div><div class="implementation-actions">
+      <td>${findingText(control || c)}<div class="remediation"><strong>Recommendation:</strong> ${esc(c.remediation)}</div>${rationale(c)}<div class="implementation-actions">
         <button class="btn btn-sm" type="button" data-task="${esc(c.id)}" aria-label="Download task for ${esc(c.id)}: ${esc(c.title)}">Download task</button>
         <span class="color-fg-muted text-small">Manual implementation or task export only</span>
         ${documentationLink(c.references)} ${implementationGuideLink()}</div></td></tr>`;
@@ -351,7 +358,7 @@ function renderControls() {
     <span class="color-fg-muted" id="control-count" role="status" aria-live="polite">${rows.length} controls</span></div>
     <div class="table-wrap" role="region" aria-label="Controls table" tabindex="0"><table><thead><tr><th scope="col">Control</th><th scope="col">Pillar / area</th><th scope="col">Type</th><th scope="col">Weight</th><th scope="col">Status</th><th scope="col">Finding</th></tr></thead><tbody>${
     rows.map((c) => `<tr><td><strong>${esc(c.id)}</strong><br>${esc(c.title)}</td><td>${esc(pillarName(c.pillar))}<br><span class="color-fg-muted text-small">${esc(c.area)}</span></td><td>${esc(c.source)}</td><td>${c.weight}</td><td>${pill(c.status)}</td>
-      <td>${findingText(c)}${c.notes ? `<div class="text-small color-fg-muted">Notes: ${esc(c.notes)}</div>` : ''}<details><summary>Recommendation</summary>${esc(c.remediation)}<div class="text-small">${refs(c.references)}</div></details>
+      <td>${findingText(c)}${c.notes ? `<div class="text-small color-fg-muted">Notes: ${esc(c.notes)}</div>` : ''}<details><summary>Recommendation</summary>${esc(c.remediation)}${rationale(c)}<div class="text-small">${refs(c.references)}</div></details>
         ${c.status === 'pass' || c.status === 'not_applicable' ? '' : `<div class="implementation-actions"><button class="btn btn-sm" type="button" data-task="${esc(c.id)}" aria-label="Download task for ${esc(c.id)}: ${esc(c.title)}">Download task</button>
         <span class="color-fg-muted text-small">Manual implementation or task export only</span>
         ${documentationLink(c.references)} ${implementationGuideLink()}</div>`}</td></tr>`).join('')

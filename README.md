@@ -66,7 +66,7 @@ For GitHub Enterprise Server, supply `--api-url https://HOST/api/v3` and authent
 
 ## Rubric and scoring
 
-The bundled rubric has 44 controls: 15 Governance, 13 Application Security, 6 Architecture, 5 Collaboration, and 5 Productivity. Controls use automated evidence or manual answers, with references and suggested remediation. List them with:
+The bundled rubric has 44 controls: 15 Governance, 13 Application Security, 6 Architecture, 5 Collaboration, and 5 Productivity. Controls use automated evidence or manual answers, with references, suggested remediation, why to implement it, and considerations for when it may not fit. List them with:
 
 ```sh
 node bin/gh-waf-assess.js rubric
@@ -80,7 +80,7 @@ Select an automated finding to see its collected repository or organization resu
 
 To customize controls or scoring, copy `rubric/well-architected.json` and pass `--rubric path/to/rubric.json`. New automated controls also require a matching check implementation in `src/checks.js`.
 
-Use **Download task** on a finding or coverage gap to export a Markdown implementation task with its recommendation, references, and a review checklist. The dashboard and collector are read-only and do not change GitHub settings; follow [`docs/implementation-guide.md`](docs/implementation-guide.md) and review the [daily official updates digest](docs/official-updates.md) before applying changes. A scheduled GitHub Actions workflow refreshes that digest from the GitHub Docs source repository, Changelog, and Blog each day.
+Use **Download task** on a finding or coverage gap to export a Markdown implementation task with its recommendation, rationale and trade-offs, references, and a review checklist. The dashboard and collector are read-only and do not change GitHub settings; follow [`docs/implementation-guide.md`](docs/implementation-guide.md) and review the [daily official updates digest](docs/official-updates.md) before applying changes. A scheduled GitHub Actions workflow refreshes that digest from the GitHub Docs source repository, Changelog, and Blog each day.
 
 ## Privacy
 
