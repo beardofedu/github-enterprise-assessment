@@ -97,7 +97,14 @@ The accessibility test requires Playwright's Chromium browser. If it is not inst
 
 ### Documentation site
 
-The static user guide and changelog live in [`docs/index.html`](docs/index.html) and [`docs/changelog.html`](docs/changelog.html). Open the HTML locally to preview; no site generator is required. Add user-facing changes to the changelog with links to the affected guide sections. Keep project changes separate from the upstream official updates digest.
+The static user guide and changelog live in [`docs/index.html`](docs/index.html) and [`docs/changelog.html`](docs/changelog.html). To preview them locally, install dependencies and generate the Primer stylesheet:
+
+```sh
+npm ci
+npm run docs:primer
+```
+
+Then open the HTML locally; no site generator is required. Add user-facing changes to the changelog with links to the affected guide sections. Keep project changes separate from the upstream official updates digest.
 
 Run `npm run docs:screenshots` to refresh the four walkthrough screenshots from bundled fictional evidence and example answers. This requires Playwright Chromium, uses loopback port 4174, and cleans up its temporary answers. Never capture live enterprise data for the public site. Run `npm run test:docs` to check local links, screenshots, accessibility, and desktop/mobile reflow.
 
