@@ -70,7 +70,7 @@ node bin/gh-waf-assess.js run --enterprise YOUR_ENTERPRISE_SLUG --orgs org-one,o
 gh auth login --hostname github.example.com
 GH_TOKEN="$(gh auth token --hostname github.example.com)" node bin/gh-waf-assess.js run \
   --enterprise YOUR_ENTERPRISE_SLUG --api-url https://github.example.com/api/v3</code></pre>
-      <p>The default inventory limit is 1,000 repositories per organization; deep inspection samples 25 active repositories. Adjust <code>--max-repos</code> and <code>--sample</code> as needed. Samples, truncated inventories, and inaccessible settings are not comprehensive coverage. GitHub Enterprise Server API availability depends on the server version.</p>
+      <p>The initial scan reports organization and repository counts and estimates the minimum API request volume. For a large footprint, rerun with its suggested <code>--duration MINUTES</code> value to pace requests across a longer collection window. The estimate excludes additional pagination and ruleset-detail requests, so collection can take longer. The default inventory limit is 1,000 repositories per organization; deep inspection samples 25 active repositories. Adjust <code>--max-repos</code> and <code>--sample</code> as needed. Samples, truncated inventories, and inaccessible settings are not comprehensive coverage. GitHub Enterprise Server API availability depends on the server version.</p>
       <p class="flash flash-warn my-3"><strong>Keep assessment data private.</strong> Evidence, answers, reports, and notes may contain sensitive enterprise information. Do not commit them or upload them to GitHub Pages. The dashboard binds to loopback, and collection makes read-only GitHub API requests.</p>
     </section>
 

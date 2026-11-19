@@ -17,7 +17,7 @@ const HELP = `gh-waf-assess — assess a GitHub Enterprise against the GitHub We
 
 Usage:
   gh-waf-assess run      --enterprise <slug> [collect options] [serve options]
-  gh-waf-assess collect  --enterprise <slug> [--orgs a,b] [--use-token-orgs] [--api-url URL] [--sample 25] [--max-repos 1000] [--out evidence.json]
+  gh-waf-assess collect  --enterprise <slug> [--orgs a,b] [--use-token-orgs] [--api-url URL] [--sample 25] [--max-repos 1000] [--duration MINUTES] [--out evidence.json]
   gh-waf-assess assess   --evidence evidence.json [--answers answers.json] [--format md|json|html] [--out FILE] [--fail-under N]
   gh-waf-assess serve    --evidence evidence.json [--answers answers.json] [--port 4173]
   gh-waf-assess serve    --demo
@@ -31,6 +31,7 @@ Options:
   --api-url      REST API base URL (default https://api.github.com; GHES: https://HOST/api/v3)
   --sample       Active repositories per org to deep-inspect for CODEOWNERS/workflows (default 25)
   --max-repos    Maximum repositories inventoried per org (default 1000)
+  --duration     Spread API requests across at least this many minutes
   --evidence     Evidence file produced by \`collect\`
   --answers      Questionnaire answers file (default answers.json)
   --rubric       Custom rubric JSON (default: built-in Well-Architected rubric)
@@ -50,6 +51,7 @@ const options = {
   'api-url': { type: 'string', default: process.env.GITHUB_API_URL || 'https://api.github.com' },
   sample: { type: 'string', default: '25' },
   'max-repos': { type: 'string', default: '1000' },
+  duration: { type: 'string' },
   evidence: { type: 'string' },
   answers: { type: 'string', default: 'answers.json' },
   rubric: { type: 'string', default: DEFAULT_RUBRIC_PATH },
@@ -120,8 +122,10 @@ async function runCollect(values) {
     tokenOrgFallback: values['use-token-orgs'],
     sampleSize: positiveInt(values.sample, 'sample'),
     maxRepos: positiveInt(values['max-repos'], 'max-repos'),
+    durationMinutes: values.duration == null ? null : positiveInt(values.duration, 'duration'),
     log,
   };
+  if (opts.durationMinutes === 0) fail('--duration must be at least 1 minute');
   let evidence;
   try {
     evidence = await collect(opts);

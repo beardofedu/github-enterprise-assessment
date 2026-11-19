@@ -3,7 +3,7 @@ import http from 'node:http';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { collect, EnterpriseUnavailableError } from '../src/collector.js';
-import { graphqlUrlFor } from '../src/github-client.js';
+import { GitHubClient, graphqlUrlFor } from '../src/github-client.js';
 import { createServer } from '../src/server.js';
 import { loadRubric } from '../src/engine.js';
 import { copyFileSync, cpSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
@@ -13,7 +13,7 @@ import { join } from 'node:path';
 function mockFetch(routes, calls = []) {
   return async (url, init = {}) => {
     const u = new URL(url);
-    calls.push({ method: init.method || 'GET', path: u.pathname + u.search });
+    calls.push({ method: init.method || 'GET', path: u.pathname + u.search, startedAt: Date.now() });
     let route;
     if (u.pathname === '/graphql') {
       const { query } = JSON.parse(init.body);
@@ -32,22 +32,34 @@ function mockFetch(routes, calls = []) {
 
 test('collector discovers orgs, paginates, and isolates denied endpoints', async () => {
   const calls = [];
+  const logs = [];
   const routes = {
     graphql: (q) => {
       if (q.includes('organizations')) return { body: { data: { enterprise: { organizations: { nodes: [{ login: 'acme' }], pageInfo: { hasNextPage: false, endCursor: null } } } } } };
       if (q.includes('samlIdentityProvider')) return { body: { data: { enterprise: { ownerInfo: { samlIdentityProvider: { id: 'x' } } } } } };
       return { body: { errors: [{ message: 'Field not available' }] } };
     },
-    '/orgs/acme': { body: { two_factor_requirement_enabled: true, default_repository_permission: 'read', members_can_create_public_repositories: false } },
+    '/orgs/acme': { body: { public_repos: 2, total_private_repos: 1, two_factor_requirement_enabled: true, default_repository_permission: 'read', members_can_create_public_repositories: false } },
     '/orgs/acme/repos': { body: [{ name: 'r1', archived: false, fork: false, pushed_at: new Date().toISOString(), description: 'd', visibility: 'private' }], link: '<https://api.test/orgs/acme/repos?page=2>; rel="next"' },
     '/orgs/acme/repos?page=2': { body: [{ name: 'r2', archived: true, fork: false, pushed_at: null, visibility: 'private' }] },
     '/orgs/acme/members': { status: 403, body: { message: 'Resource not accessible' } },
     '/repos/acme/r1/codeowners/errors': { body: { errors: [] } },
     '/repos/acme/r1/actions/workflows': { body: { total_count: 2 } },
   };
-  const ev = await collect({ token: 't', apiUrl: 'https://api.test', enterprise: 'acme-ent', fetchImpl: mockFetch(routes, calls) });
+  const ev = await collect({ token: 't', apiUrl: 'https://api.test', enterprise: 'acme-ent', durationMinutes: 0.001, fetchImpl: mockFetch(routes, calls), log: (msg) => logs.push(msg) });
 
   assert.deepEqual(ev.meta.organizations, ['acme']);
+  assert.deepEqual(ev.meta.footprint, {
+    organizations: 1,
+    repositories: 3,
+    knownRepositories: 3,
+    organizationsWithUnknownRepositoryCount: [],
+  });
+  assert.ok(ev.meta.estimatedRequestCount > ev.meta.requestCount);
+  assert.ok(ev.meta.requestIntervalMs > 0);
+  assert.ok(logs.some((msg) => /Pacing requests for approximately/.test(msg)));
+  assert.ok(logs.some((msg) => /Footprint: 1 organization\(s\), 3 repositories/.test(msg)));
+  assert.equal(calls.filter((call) => call.path === '/orgs/acme').length, 1, 'preflight metadata is reused during collection');
   assert.equal(ev.enterprise.saml.ok, true);
   assert.equal(ev.enterprise.saml.data, true);
   assert.equal(ev.enterprise.twoFactor.ok, false);
@@ -61,18 +73,116 @@ test('collector discovers orgs, paginates, and isolates denied endpoints', async
   assert.ok(calls.every((c) => c.method === 'GET' || c.path === '/graphql'), 'only read operations are issued');
 });
 
+test('GitHub client spaces concurrent request starts when configured', async () => {
+  const started = [];
+  const client = new GitHubClient({
+    token: 't',
+    apiUrl: 'https://api.test',
+    requestIntervalMs: 20,
+    fetchImpl: async () => {
+      started.push(Date.now());
+      return { ok: true, status: 200, headers: { get: () => null }, json: async () => ({}) };
+    },
+  });
+
+  await Promise.all([client.get('/first'), client.get('/second')]);
+  client.setRequestIntervalMs(30);
+  await client.get('/third');
+
+  assert.equal(started.length, 3);
+  assert.ok(started[1] - started[0] >= 15);
+  assert.ok(started[2] - started[1] >= 25);
+});
+
+test('GitHub client recalculates request spacing after an event-loop stall', async () => {
+  const started = [];
+  const client = new GitHubClient({
+    token: 't',
+    apiUrl: 'https://api.test',
+    requestIntervalMs: 20,
+    fetchImpl: async () => {
+      started.push(Date.now());
+      return { ok: true, status: 200, headers: { get: () => null }, json: async () => ({}) };
+    },
+  });
+
+  const requests = ['/first', '/second', '/third'].map((path) => client.get(path));
+  await new Promise((resolve) => setImmediate(resolve));
+  const stallUntil = Date.now() + 75;
+  while (Date.now() < stallUntil) {}
+  await Promise.all(requests);
+
+  assert.equal(started.length, 3);
+  assert.ok(started[1] - started[0] >= 15);
+  assert.ok(started[2] - started[1] >= 15);
+});
+
+test('sample request estimate respects the repository cap', async () => {
+  const ev = await collect({
+    token: 't',
+    apiUrl: 'https://api.test',
+    orgs: ['acme'],
+    sampleSize: 1000,
+    maxRepos: 1,
+    fetchImpl: mockFetch({
+      '/orgs/acme': { body: { public_repos: 1000, total_private_repos: 0 } },
+      '/orgs/acme/repos': { body: [{ name: 'r1', archived: false, fork: false }] },
+    }),
+  });
+
+  assert.equal(ev.meta.estimatedRequestCount, 20);
+});
+
 test('collector stops when the enterprise is unavailable unless token-org fallback is allowed', async () => {
+  const calls = [];
   const routes = {
     graphql: () => ({ body: { data: { enterprise: null } } }),
-    '/user/orgs': { body: [{ login: 'mine' }] },
+    '/user/orgs': { body: [{ login: 'mine' }], link: '<https://api.test/user/orgs?page=2>; rel="next"' },
+    '/user/orgs?page=2': { body: [{ login: 'mine-2' }] },
   };
   await assert.rejects(
     collect({ token: 't', apiUrl: 'https://api.test', enterprise: 'nope', fetchImpl: mockFetch(routes) }),
     (err) => err instanceof EnterpriseUnavailableError && err.enterprise === 'nope' && /not found or not accessible/.test(err.message),
   );
-  const ev = await collect({ token: 't', apiUrl: 'https://api.test', enterprise: 'nope', tokenOrgFallback: true, sampleSize: 0, fetchImpl: mockFetch(routes) });
-  assert.deepEqual(ev.meta.organizations, ['mine']);
+  const ev = await collect({
+    token: 't',
+    apiUrl: 'https://api.test',
+    enterprise: 'nope',
+    tokenOrgFallback: true,
+    sampleSize: 0,
+    durationMinutes: 0.001,
+    fetchImpl: mockFetch(routes, calls),
+  });
+  assert.deepEqual(ev.meta.organizations, ['mine', 'mine-2']);
   assert.equal(ev.meta.orgDiscovery.ok, false);
+  assert.ok(calls[1].startedAt - calls[0].startedAt >= 900, 'enterprise discovery is paced before fallback');
+  assert.ok(calls[2].startedAt - calls[1].startedAt >= 900, 'fallback pagination is paced');
+});
+
+test('enterprise discovery pagination is paced before the footprint is known', async () => {
+  const calls = [];
+  let discoveryPage = 0;
+  const ev = await collect({
+    token: 't',
+    apiUrl: 'https://api.test',
+    enterprise: 'acme-ent',
+    sampleSize: 0,
+    durationMinutes: 0.001,
+    fetchImpl: mockFetch({
+      graphql: (query) => {
+        if (!query.includes('organizations')) return { body: { errors: [{ message: 'Unavailable' }] } };
+        discoveryPage++;
+        return { body: { data: { enterprise: { organizations: {
+          nodes: [{ login: discoveryPage === 1 ? 'acme' : 'acme-2' }],
+          pageInfo: { hasNextPage: discoveryPage === 1, endCursor: 'next' },
+        } } } } };
+      },
+      '/orgs/acme': { body: { public_repos: 0, total_private_repos: 0 } },
+    }, calls),
+  });
+
+  assert.deepEqual(ev.meta.organizations, ['acme', 'acme-2']);
+  assert.ok(calls[1].startedAt - calls[0].startedAt >= 900);
 });
 
 test('graphql URL is derived for GHES and github.com', () => {
