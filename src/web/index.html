@@ -204,7 +204,7 @@ function downloadTask(control) {
 
 function findingText(control) {
   const breakdown = control.details?.breakdown;
-  if (control.source !== 'automated' || !breakdown || (!breakdown.items?.length && !breakdown.unavailable?.length)) return esc(control.finding);
+  if (control.source !== 'automated' || !breakdown || (!breakdown.items?.length && !breakdown.unavailable?.length && !breakdown.truncated)) return esc(control.finding);
   const entities = breakdown.kind === 'repository' ? 'repositories' : 'organizations';
   return `<button class="btn-link finding-link" type="button" data-breakdown="${esc(control.id)}" aria-haspopup="dialog" aria-label="${esc(control.finding)} View ${entities}.">${esc(control.finding)}</button>`;
 }

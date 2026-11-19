@@ -31,7 +31,7 @@ function scopesForPath(path) {
 
 /** Returns { scopes, command, requiresOwner } when a finding reports a scope-related access failure, otherwise null. */
 export function accessRemediation(finding, apiUrl) {
-  if (!finding || /API rate limit exceeded|secondary rate limit/i.test(finding)) return null;
+  if (!finding || /API rate limit exceeded|secondary rate limit|IP allow[ -]?list/i.test(finding)) return null;
   const scopes = new Set();
   for (const [, path] of finding.matchAll(DENIED)) scopesForPath(path).forEach((s) => scopes.add(s));
   // GraphQL reports missing scopes explicitly, e.g. "requires one of the following scopes: ['read:enterprise']".
