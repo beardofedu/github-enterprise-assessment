@@ -4,7 +4,9 @@
 const STALE_DAYS = 365;
 const SCORE = { pass: 1, partial: 0.5, fail: 0 };
 
-const result = (status, finding, details = {}) => ({ status, finding, details });
+// API error messages often end with their own period; avoid rendering "permission.." in findings.
+const endSentence = (text) => text.replace(/([.!?])\.+$/, '$1');
+const result = (status, finding, details = {}) => ({ status, finding: endSentence(finding), details });
 const pct = (n) => `${Math.round(n * 100)}%`;
 const listSome = (arr, n = 5) => (arr.length > n ? `${arr.slice(0, n).join(', ')} (+${arr.length - n} more)` : arr.join(', '));
 

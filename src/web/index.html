@@ -29,6 +29,8 @@
   .q textarea { min-height: 4rem; width: min(100%, 48rem); }
   .remediation { margin-top: .375rem; }
   .implementation-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: .5rem; }
+  .copy-command { display: flex; align-items: flex-start; gap: .5rem; margin-top: .5rem; }
+  .copy-command pre { flex: 1; margin: 0; padding: .5rem .75rem; overflow-x: auto; background: var(--bgColor-muted); border: 1px solid var(--borderColor-default); border-radius: 6px; font-size: 12px; }
   dialog { max-width: min(36rem, calc(100vw - 2rem)); border: 1px solid var(--borderColor-default); border-radius: .5rem; color: var(--fgColor-default); background: var(--bgColor-default); }
   dialog::backdrop { background: rgb(31 35 40 / 60%); }
   .implementation-form { display: grid; gap: .75rem; }
@@ -96,6 +98,7 @@ const scoreProgress = (label, score) => score == null ? '<p class="color-fg-mute
   : `<progress class="ScoreProgress" max="100" value="${score}" aria-label="${esc(label)} score: ${score} percent"></progress>`;
 
 function downloadTask(control) {
+    const access = data.coverageGaps.find((g) => g.id === control.id)?.access;
     const links = (control.references || []).filter((url) => {
       try { return new URL(url).protocol === 'https:'; } catch { return false; }
     });
@@ -105,6 +108,7 @@ function downloadTask(control) {
       `- **Status:** ${control.status}`,
       `- **Finding:** ${control.finding}`,
       '',
+      ...(access ? ['## Grant token access', '', 'Add the missing scopes to the GitHub CLI token, then re-run collection:', '', '```sh', access.command, '```', ''] : []),
       '## Recommended change',
       '',
       control.remediation || 'Review the control guidance and define an appropriate implementation.',
@@ -238,19 +242,45 @@ function renderQuestionnaire() {
   });
 }
 
+function copyCommand(command, label) {
+  return `<div class="copy-command"><pre><code>${esc(command)}</code></pre><button class="btn btn-sm" type="button" data-copy="${esc(command)}" aria-label="Copy ${esc(label)}">Copy</button></div>`;
+}
+
+function accessHelp(access, intro) {
+  if (!access) return '';
+  return `<div class="remediation"><strong>${intro}</strong> add the <code>${access.scopes.map(esc).join('</code>, <code>')}</code> scope${access.scopes.length > 1 ? 's' : ''} to your GitHub CLI token, then re-run collection.
+    ${copyCommand(access.command, 'gh auth refresh command')}
+    <p class="color-fg-muted text-small mb-0">${access.requiresOwner ? 'The authenticated account must also be an organization owner (or have the matching fine-grained permission). ' : ''}If <code>GH_TOKEN</code> or <code>GITHUB_TOKEN</code> is set, it takes precedence over the gh CLI token; update that token instead or unset it.</p></div>`;
+}
+
+function bindCopyButtons(el) {
+  el.querySelectorAll('[data-copy]').forEach((button) => button.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(button.dataset.copy);
+      button.textContent = 'Copied';
+    } catch {
+      button.textContent = 'Copy failed';
+    }
+    setTimeout(() => { button.textContent = 'Copy'; }, 2000);
+  }));
+}
+
 function renderGaps() {
   const el = document.getElementById('tab-gaps');
   if (!data.coverageGaps.length) { el.innerHTML = '<h2 class="h3">Coverage gaps</h2><p class="color-fg-muted">Every applicable control has been assessed.</p>'; return; }
   el.innerHTML = `<h2 class="h3">Coverage gaps</h2><p class="color-fg-muted">These controls are excluded from scores until evidence is available. Grant the token more scopes, re-run collection, or answer them in the questionnaire.</p>
+    ${accessHelp(data.coverageAccess, 'To fill the permission-related gaps at once,')}
     <div class="table-wrap" role="region" aria-label="Coverage gaps table" tabindex="0"><table><thead><tr><th scope="col">Control</th><th scope="col">Pillar</th><th scope="col">Status</th><th scope="col">Reason</th></tr></thead><tbody>${
     data.coverageGaps.map((g) => {
       const control = data.controls.find((item) => item.id === g.id);
       return `<tr><td><strong>${esc(g.id)}</strong><br>${esc(g.title)}</td><td>${esc(pillarName(g.pillar))}</td><td>${pill(g.status)}</td><td>${esc(g.finding)}
+        ${accessHelp(g.access, 'To fix,')}
         <div class="implementation-actions"><button class="btn btn-sm" type="button" data-task="${esc(g.id)}" aria-label="Download task for ${esc(g.id)}: ${esc(g.title)}">Download task</button>
         <span class="color-fg-muted text-small">Manual evidence review or task export only</span>
         ${documentationLink(control?.references)} ${implementationGuideLink()}</div></td></tr>`;
     }).join('')}</tbody></table></div>`;
   bindImplementationActions(el);
+  bindCopyButtons(el);
 }
 
 function renderActions() {
