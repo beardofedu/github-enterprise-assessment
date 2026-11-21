@@ -30,6 +30,14 @@ npm run demo
 
 Open the displayed local URL. The demo uses fictional evidence and saves questionnaire answers to `answers.demo.json`. Press Ctrl+C to stop the server.
 
+### Application updates and shutdown
+
+On startup, commands check the public application repository's latest `main` commit on GitHub. In an interactive terminal, a clean Git checkout on `main` prompts to install an available update. Accepting fetches the official repository, fast-forwards to the checked commit, and runs `npm ci` in the application directory. The command then stops; rerun it to load the updated functionality. Updates never reset local changes or switch branches. Dirty or feature-branch checkouts require a manual update. Ignored evidence and answers are preserved.
+
+The check does not send tokens or assessment data, uses a three-second network timeout, and warns without blocking your assessment if GitHub is unavailable. Noninteractive commands never install updates. Pass `--skip-update-check` for offline use or automation, for example `npm run demo -- --skip-update-check`. Help does not contact GitHub. This checks application code, not the separate official GitHub product updates digest.
+
+Ctrl+C, termination, and terminal hangup close the dashboard and its connections. The application also monitors its launching process and shell, so force-quitting the terminal does not leave the local dashboard running. Closing the browser alone does not stop the server. Answers already saved remain on disk.
+
 ## Assess an enterprise
 
 ```sh

@@ -74,6 +74,13 @@ GH_TOKEN="$(gh auth token --hostname github.example.com)" node bin/gh-waf-assess
       <p class="flash flash-warn my-3"><strong>Keep assessment data private.</strong> Evidence, answers, reports, and notes may contain sensitive enterprise information. Do not commit them or upload them to GitHub Pages. The dashboard binds to loopback, and collection makes read-only GitHub API requests.</p>
     </section>
 
+    <section class="markdown-body mt-6" id="updates">
+      <h2>Application updates and shutdown</h2>
+      <p>Commands check the public application repository on GitHub at startup. Interactive terminals prompt to install available updates only from a clean Git checkout on <code>main</code>. Accepting fetches the official repository, fast-forwards to the checked commit, and runs <code>npm ci</code>. The command then stops: rerun it to use the updated functionality. Local changes are never reset, branches are never switched, and ignored assessment data is preserved.</p>
+      <p>No tokens or assessment data are sent by the update check. It warns and continues if GitHub is unavailable, with a three-second network timeout. Noninteractive commands never install updates. For offline use or automation, pass <code>--skip-update-check</code>, for example <code>npm run demo -- --skip-update-check</code>. Help does not contact GitHub. This checks the application, not the official GitHub product updates digest.</p>
+      <p>Ctrl+C, termination, and terminal hangup close the dashboard connections and release the port. The application monitors its launching process and shell so force-quitting the terminal also stops the dashboard. Closing only the browser does not stop the server. Saved answers stay on disk.</p>
+    </section>
+
     <section class="markdown-body mt-6" id="review">
       <h2>3. Review findings and controls</h2>
       <p>Start in <strong>Improvement areas</strong>. Findings are ranked by control weight multiplied by the gap; review High severity failures first. Confirm the affected scope and linked guidance before deciding on a change.</p>
