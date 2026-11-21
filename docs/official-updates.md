@@ -5,23 +5,23 @@ This file is refreshed daily by the scheduled workflow from the GitHub Docs sour
 Run `node bin/update-official-docs.js` to refresh it manually.
 
 <!-- official-updates:start -->
-Updated: 2026-11-20T06:30:59.278Z
+Updated: 2026-11-21T06:28:35.073Z
 
 ### GitHub Docs
 
-- [Merge pull request #47012 from github/repo-sync](https://github.com/github/docs/commit/16d03ddd1bd51eab7407b4ba632200618e6655c2) — 2026-11-19
-- [Fix broken moda-ci link in src/deployments (#64806)](https://github.com/github/docs/commit/65024672bc31d0ddda00dad64ebfb01a06b11e2b) — 2026-11-19
-- [GitHub Enterprise Server 3.23 release candidate (#63904)](https://github.com/github/docs/commit/892c1ef42b37c5601122e9113f06aadd05355778) — 2026-11-19
-- [Merge pull request #47008 from github/repo-sync](https://github.com/github/docs/commit/977869c2ab54b6f151bef052611fbdb5a73c212f) — 2026-11-19
-- [Copilot CLI: Update automation and CI articles (#64795)](https://github.com/github/docs/commit/b92b7772c58084f8d9c5bfad2b446ef3b4c6856b) — 2026-11-19
+- [Merge pull request #47027 from github/repo-sync](https://github.com/github/docs/commit/d7487f5debb5a5a2a6e65e6f9fa539266f5f8db6) — 2026-11-20
+- [Document security advisory permissions for custom repository roles (#64505)](https://github.com/github/docs/commit/a31bc7f982e83a59138c9d9fb68744dbbda2aa52) — 2026-11-20
+- [Merge pull request #47025 from github/repo-sync](https://github.com/github/docs/commit/59c6175a7d35c1b34ca5beb68faaf326a139187b) — 2026-11-20
+- [docs: update copilot-cli content from source docs (#64822)](https://github.com/github/docs/commit/a5cc0d0884bdec9cb0b36c180fc5d85ebfea3f5a) — 2026-11-20
+- [Add GPT-6.2 and Gemini 4 models to Copilot data residency regions (#64826)](https://github.com/github/docs/commit/37f9e279e087f77db7d3b53abb130e251ae7f664) — 2026-11-20
 
 ### GitHub Changelog
 
+- [Security advisory permissions are now generally available](https://github.blog/changelog/2026-11-20-security-advisory-permissions-are-now-generally-available) — Fri, 20 Nov 2026 21:49:29 +0000
+- [GitHub Enterprise Server 3.23 release candidate](https://github.blog/changelog/2026-11-20-github-enterprise-server-3-23-release-candidate) — Fri, 20 Nov 2026 20:41:26 +0000
+- [Pin your favorite repositories to your dashboard](https://github.blog/changelog/2026-11-20-pin-your-favorite-repositories-to-your-dashboard) — Fri, 20 Nov 2026 14:12:05 +0000
+- [GitHub Desktop now supports multiple accounts per host](https://github.blog/changelog/2026-11-19-github-desktop-now-supports-multiple-accounts-per-host) — Fri, 20 Nov 2026 02:06:01 +0000
 - [Improvements on the pull request overview in public preview](https://github.blog/changelog/2026-11-19-improvements-on-the-pull-request-overview-in-public-preview) — Fri, 20 Nov 2026 00:02:21 +0000
-- [Enterprise Live Migrations from Azure DevOps generally available](https://github.blog/changelog/2026-11-19-enterprise-live-migrations-from-azure-devops-generally-available) — Thu, 19 Nov 2026 18:50:57 +0000
-- [Red Hat Enterprise Linux runner images now generally available](https://github.blog/changelog/2026-11-19-red-hat-enterprise-linux-runner-images-now-generally-available) — Thu, 19 Nov 2026 18:48:46 +0000
-- [S3 audit log streaming with OpenID Connect expands to GHE.com](https://github.blog/changelog/2026-11-19-s3-audit-log-streaming-with-openid-connect-expands-to-ghe-com) — Thu, 19 Nov 2026 08:27:16 +0000
-- [Wait for pull request events with GitHub CLI](https://github.blog/changelog/2026-11-18-wait-for-pull-request-events-with-github-cli) — Thu, 19 Nov 2026 00:00:13 +0000
 
 ### GitHub Blog
 
