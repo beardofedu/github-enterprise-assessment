@@ -10,8 +10,17 @@ import { assess, loadRubric, DEFAULT_RUBRIC_PATH } from '../src/engine.js';
 import { render } from '../src/report.js';
 import { createServer, loadAnswers } from '../src/server.js';
 import { readPrimerCss } from '../src/web-assets.js';
+import { checkForUpdates } from '../src/updates.js';
+import { installLifecycle } from '../src/lifecycle.js';
 
 const DEMO_EVIDENCE = fileURLToPath(new URL('../examples/sample-evidence.json', import.meta.url));
+let dashboard;
+const lifecycle = installLifecycle({
+  onShutdown: () => {
+    dashboard?.closeAllConnections();
+    dashboard?.close();
+  },
+});
 
 const HELP = `gh-waf-assess — assess a GitHub Enterprise against the GitHub Well-Architected Framework
 
@@ -40,8 +49,11 @@ Options:
   --fail-under   Exit with code 2 when the overall score is below N (useful in automation)
   --port         Dashboard port (default 4173; bound to 127.0.0.1 only)
   --demo         Serve the dashboard with bundled sample evidence
+  --skip-update-check  Do not contact GitHub for application updates (offline/automation)
 
 Authentication: uses GH_TOKEN, GITHUB_TOKEN, or \`gh auth token\`. All API calls are read-only.
+Startup checks the public application repository on GitHub; interactive clean main checkouts
+can install an update after confirmation. No assessment data or tokens are sent by this check.
 `;
 
 const options = {
@@ -60,6 +72,7 @@ const options = {
   'fail-under': { type: 'string' },
   port: { type: 'string', default: '4173' },
   demo: { type: 'boolean', default: false },
+  'skip-update-check': { type: 'boolean', default: false },
   help: { type: 'boolean', short: 'h', default: false },
 };
 
@@ -151,6 +164,8 @@ function serve(values, evidence) {
   const port = positiveInt(values.port, 'port');
   const answersPath = values.answers;
   const server = createServer({ rubric, evidence, answersPath, port });
+  dashboard = server;
+  server.on('error', (err) => fail(err.message));
   server.listen(port, '127.0.0.1', () => {
     log(`Dashboard: http://127.0.0.1:${port}  (answers saved to ${answersPath}; Ctrl+C to stop)`);
   });
@@ -169,6 +184,12 @@ async function main() {
     process.stdout.write(HELP);
     return;
   }
+  if (!['collect', 'assess', 'serve', 'run', 'rubric'].includes(command)) {
+    fail(`Unknown command '${command}'. Run with --help.`);
+  }
+  if (!values['skip-update-check'] && await checkForUpdates({
+    log, confirm, signal: lifecycle.signal,
+  })) return;
 
   switch (command) {
     case 'collect':

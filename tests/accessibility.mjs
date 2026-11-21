@@ -267,7 +267,7 @@ async function assertRepositoryAdminGuidance(page, assessment) {
 
 try {
   server = spawn(process.execPath, [
-    "bin/gh-waf-assess.js", "serve", "--demo", "--port", String(port), "--answers", answersPath,
+    "bin/gh-waf-assess.js", "serve", "--demo", "--skip-update-check", "--port", String(port), "--answers", answersPath,
   ], { cwd: root, stdio: "ignore" });
   await waitForServer();
   browser = await chromium.launch({ headless: true });
