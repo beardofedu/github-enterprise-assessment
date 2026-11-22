@@ -5,7 +5,7 @@ This file is refreshed daily by the scheduled workflow from the GitHub Docs sour
 Run `node bin/update-official-docs.js` to refresh it manually.
 
 <!-- official-updates:start -->
-Updated: 2026-11-21T06:28:35.073Z
+Updated: 2026-11-22T06:29:45.797Z
 
 ### GitHub Docs
 
