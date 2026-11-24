@@ -90,7 +90,7 @@ GH_TOKEN="$(gh auth token --hostname github.example.com)" node bin/gh-waf-assess
         <figcaption>Use pillar and status filters to narrow the control inventory. This example selects Governance.</figcaption>
       </figure>
       <h3>Read scores alongside coverage</h3>
-      <p>The bundled rubric includes 44 controls across Governance, Application Security, Architecture, Collaboration, and Productivity. Pass, partial, and fail contribute 1, 0.5, and 0, weighted by control importance. Unknown, unanswered, and not-applicable controls are excluded from scores. Coverage is the percentage of applicable controls that were scored.</p>
+      <p>The bundled rubric includes 44 controls across Governance, Application Security, Architecture, Collaboration, and Productivity. Pass, partial, and fail contribute 1, 0.5, and 0, weighted by control importance. Each control has a weight from 1 to 3: 3 is High severity, 2 is Medium, and 1 is Low. A weight-3 control counts three times as much as a weight-1 control. Improvement priority is weight multiplied by the gap, where the gap is 1 minus the control score. Unknown, unanswered, and not-applicable controls are excluded from scores. Coverage is the percentage of applicable controls that were scored.</p>
       <p>Maturity labels are Initial (below 40), Developing (40 to below 60), Defined (60 to below 75), Managed (75 to below 90), and Optimized (90 to 100). A high score with low coverage is not a complete assessment.</p>
     </section>
 
