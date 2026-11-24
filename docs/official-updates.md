@@ -5,23 +5,23 @@ This file is refreshed daily by the scheduled workflow from the GitHub Docs sour
 Run `node bin/update-official-docs.js` to refresh it manually.
 
 <!-- official-updates:start -->
-Updated: 2026-11-23T06:40:52.835Z
+Updated: 2026-11-24T06:31:33.441Z
 
 ### GitHub Docs
 
-- [Merge pull request #47027 from github/repo-sync](https://github.com/github/docs/commit/d7487f5debb5a5a2a6e65e6f9fa539266f5f8db6) — 2026-11-20
-- [Document security advisory permissions for custom repository roles (#64505)](https://github.com/github/docs/commit/a31bc7f982e83a59138c9d9fb68744dbbda2aa52) — 2026-11-20
-- [Merge pull request #47025 from github/repo-sync](https://github.com/github/docs/commit/59c6175a7d35c1b34ca5beb68faaf326a139187b) — 2026-11-20
-- [docs: update copilot-cli content from source docs (#64822)](https://github.com/github/docs/commit/a5cc0d0884bdec9cb0b36c180fc5d85ebfea3f5a) — 2026-11-20
-- [Add GPT-6.2 and Gemini 4 models to Copilot data residency regions (#64826)](https://github.com/github/docs/commit/37f9e279e087f77db7d3b53abb130e251ae7f664) — 2026-11-20
+- [Merge pull request #47050 from github/repo-sync](https://github.com/github/docs/commit/e0b0c900ea2465ce1697fdbef73debd206d0274e) — 2026-11-23
+- [Name Copilot code review fields in the API docs (#64810)](https://github.com/github/docs/commit/b58772d1fd47296d2fa6334af1d420569fc7edda) — 2026-11-23
+- [Merge pull request #64837 from github/repo-sync](https://github.com/github/docs/commit/0cdd24784cead7f28265959a111f05edd189b0ee) — 2026-11-23
+- [Merge pull request #47047 from github/repo-sync](https://github.com/github/docs/commit/9a7087ebb41b84e3df50523f7cd012b5e2d57600) — 2026-11-23
+- [Delete orphaned files (2026-11-23-16-23) (#64835)](https://github.com/github/docs/commit/65dd7b2beef6433440fbf4d3afd02bd3be9764ad) — 2026-11-23
 
 ### GitHub Changelog
 
+- [Issue statuses and repository boards are in public preview](https://github.blog/changelog/2026-11-23-issue-statuses-and-repository-boards-are-in-public-preview) — Mon, 23 Nov 2026 20:37:11 +0000
+- [Secret scanning reduces false positives for Slack](https://github.blog/changelog/2026-11-23-secret-scanning-reduces-false-positives-for-slack) — Mon, 23 Nov 2026 18:32:59 +0000
+- [Code coverage uploads now flag invalid report formats](https://github.blog/changelog/2026-11-23-code-coverage-uploads-now-flag-invalid-report-formats) — Mon, 23 Nov 2026 15:28:36 +0000
+- [Usage reports will include a user ID column starting December 1](https://github.blog/changelog/2026-11-23-usage-reports-will-include-a-user-id-column-starting-december-1) — Mon, 23 Nov 2026 10:29:36 +0000
 - [Security advisory permissions are now generally available](https://github.blog/changelog/2026-11-20-security-advisory-permissions-are-now-generally-available) — Fri, 20 Nov 2026 21:49:29 +0000
-- [GitHub Enterprise Server 3.23 release candidate](https://github.blog/changelog/2026-11-20-github-enterprise-server-3-23-release-candidate) — Fri, 20 Nov 2026 20:41:26 +0000
-- [Pin your favorite repositories to your dashboard](https://github.blog/changelog/2026-11-20-pin-your-favorite-repositories-to-your-dashboard) — Fri, 20 Nov 2026 14:12:05 +0000
-- [GitHub Desktop now supports multiple accounts per host](https://github.blog/changelog/2026-11-19-github-desktop-now-supports-multiple-accounts-per-host) — Fri, 20 Nov 2026 02:06:01 +0000
-- [Improvements on the pull request overview in public preview](https://github.blog/changelog/2026-11-19-improvements-on-the-pull-request-overview-in-public-preview) — Fri, 20 Nov 2026 00:02:21 +0000
 
 ### GitHub Blog
 
