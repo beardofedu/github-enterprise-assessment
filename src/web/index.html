@@ -354,7 +354,7 @@ function renderControls() {
   const pf = el.querySelector('#f-pillar')?.value || '', sf = el.querySelector('#f-status')?.value || '';
   const rows = data.controls.filter((c) => (!pf || c.pillar === pf) && (!sf || c.status === sf));
   const statuses = [...new Set(data.controls.map((c) => c.status))];
-  el.innerHTML = `<h2 class="h3">All controls</h2><div class="filters">
+  el.innerHTML = `<h2 class="h3">All controls</h2><p class="color-fg-muted">Weight is a control's relative importance in scores and improvement priority: 3 is High, 2 is Medium, and 1 is Low severity.</p><div class="filters">
     <label class="filter-control" for="f-pillar">Pillar<select class="FormControl-select" id="f-pillar"><option value="">All pillars</option>${data.pillars.map((p) => `<option value="${esc(p.id)}" ${p.id === pf ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></label>
     <label class="filter-control" for="f-status">Status<select class="FormControl-select" id="f-status"><option value="">All statuses</option>${statuses.map((s) => `<option value="${esc(s)}" ${s === sf ? 'selected' : ''}>${esc(s.replace('_', ' '))}</option>`).join('')}</select></label>
     <span class="color-fg-muted" id="control-count" role="status" aria-live="polite">${rows.length} controls</span></div>

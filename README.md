@@ -80,7 +80,7 @@ The bundled rubric has 44 controls: 15 Governance, 13 Application Security, 6 Ar
 node bin/gh-waf-assess.js rubric
 ```
 
-Pass, partial, and fail are scored as 1, 0.5, and 0, weighted by control importance. Unknown, unanswered, and not-applicable controls are excluded from scores; coverage shows the percentage of applicable controls that were scored. A high score with low coverage is not a complete assessment. The maturity labels are Initial (<40), Developing (40–59.9), Defined (60–74.9), Managed (75–89.9), and Optimized (90–100).
+Pass, partial, and fail are scored as 1, 0.5, and 0, weighted by control importance. Each control has a weight from 1 to 3: 3 is High severity, 2 is Medium, and 1 is Low. A weight-3 control counts three times as much as a weight-1 control in pillar and overall scores. Improvement priority is the weight multiplied by the gap (`1 - score`), so a failed weight-3 control has priority 3 and a partial weight-2 control has priority 1. Unknown, unanswered, and not-applicable controls are excluded from scores; coverage shows the percentage of applicable controls that were scored. A high score with low coverage is not a complete assessment. The maturity labels are Initial (<40), Developing (40–59.9), Defined (60–74.9), Managed (75–89.9), and Optimized (90–100).
 
 Select a pillar summary card to open All controls filtered to that pillar. Any existing status filter is retained; the card's guidance link opens the Well-Architected checklist.
 
