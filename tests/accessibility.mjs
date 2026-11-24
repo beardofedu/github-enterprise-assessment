@@ -87,6 +87,21 @@ async function assertPrimerStyles(page, label) {
 
 async function assertThemeSelector(page, scheme, checkAccessibility = false) {
   const selector = page.getByLabel("Theme", { exact: true });
+  const layout = await selector.evaluate((element) => {
+    const select = element.getBoundingClientRect();
+    const toolbar = element.closest(".header-actions").getBoundingClientRect();
+    const actions = document.getElementById("actions").getBoundingClientRect();
+    const label = document.querySelector('label[for="theme-select"]').getBoundingClientRect();
+    return {
+      rightGap: toolbar.right - select.right,
+      centerOffset: Math.abs((select.top + select.height / 2) - (actions.top + actions.height / 2)),
+      labelWidth: label.width,
+      labelHeight: label.height,
+    };
+  });
+  assert.ok(Math.abs(layout.rightGap) <= 1, "theme selector must align to the right edge of the toolbar");
+  assert.ok(layout.centerOffset <= 1, "theme selector must be inline with the other actions");
+  assert.ok(layout.labelWidth <= 1 && layout.labelHeight <= 1, "theme label must be visually hidden");
   assert.equal(await selector.inputValue(), "system");
   assert.deepEqual(await selector.locator("option").allTextContents(), [
     "System", "Light", "Dark", "High contrast (system)", "Colorblind (system)",

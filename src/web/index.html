@@ -10,6 +10,8 @@
   .Header { color: var(--fgColor-default); background: var(--bgColor-default); border-bottom: 1px solid var(--borderColor-default); }
   .header-content { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
   .header-actions, .theme-selector { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+  .header-actions { width: 100%; }
+  .theme-selector { margin-left: auto; }
   .skip-link { position: absolute; z-index: 2; top: .5rem; left: .5rem; transform: translateY(-200%); }
   .skip-link:focus { transform: translateY(0); }
   .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 1rem; }
@@ -71,8 +73,8 @@
     <div class="header-actions">
       <div class="d-flex flex-wrap gap-2" id="actions"></div>
       <div class="theme-selector">
-        <label for="theme-select">Theme</label>
-        <select class="FormControl-select" id="theme-select">
+        <label class="sr-only" for="theme-select">Theme</label>
+        <select class="form-select" id="theme-select">
           <option value="system">System</option>
           <option value="light">Light</option>
           <option value="dark">Dark</option>
