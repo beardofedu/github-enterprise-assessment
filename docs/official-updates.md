@@ -5,15 +5,15 @@ This file is refreshed daily by the scheduled workflow from the GitHub Docs sour
 Run `node bin/update-official-docs.js` to refresh it manually.
 
 <!-- official-updates:start -->
-Updated: 2026-11-26T06:32:48.813Z
+Updated: 2026-11-27T06:32:53.545Z
 
 ### GitHub Docs
 
+- [Fix JavaScript arrow function SyntaxError in REST API examples (#47075)](https://github.com/github/docs/commit/df6faa250dc425fa137d270c967e6a74f12103a7) — 2026-11-26
+- [Merge pull request #47076 from github/repo-sync](https://github.com/github/docs/commit/4f9adf7209026e370d17d20725211b961b1bca2b) — 2026-11-26
+- [Say where the status dropdown is in the new issue dialog (#64867)](https://github.com/github/docs/commit/9552a75b4fde89f657d21766aac5d4ad35aa576c) — 2026-11-26
+- [Copilot CLI: Update modes, agents, and delegation articles (#64873)](https://github.com/github/docs/commit/4ab3e721439daa57cdc9916eaf1d43c6af525f44) — 2026-11-26
 - [Merge pull request #47070 from github/repo-sync](https://github.com/github/docs/commit/8b038c5516187e33b1f81a905986639fa44e9ea9) — 2026-11-25
-- [Copilot code review billing defaults to the organization [GA] (#64734)](https://github.com/github/docs/commit/1aa185679c8a61656d4a65edc71073f87752d229) — 2026-11-25
-- [Merge pull request #64866 from github/repo-sync](https://github.com/github/docs/commit/eb2608ef397a69f955fcc047137497cfd7336f1c) — 2026-11-25
-- [Merge pull request #47068 from github/repo-sync](https://github.com/github/docs/commit/73e24e67cb2a211bec84a41b01536d400acd6e1f) — 2026-11-25
-- [docs: update copilot-cli content from source docs (#64849)](https://github.com/github/docs/commit/65c0d3a22d9d9e7c9ccd6040227bf02c0bccf0d8) — 2026-11-25
 
 ### GitHub Changelog
 
