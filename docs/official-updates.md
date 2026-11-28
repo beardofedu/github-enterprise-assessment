@@ -5,15 +5,15 @@ This file is refreshed daily by the scheduled workflow from the GitHub Docs sour
 Run `node bin/update-official-docs.js` to refresh it manually.
 
 <!-- official-updates:start -->
-Updated: 2026-11-27T06:32:53.545Z
+Updated: 2026-11-28T06:29:53.449Z
 
 ### GitHub Docs
 
-- [Fix JavaScript arrow function SyntaxError in REST API examples (#47075)](https://github.com/github/docs/commit/df6faa250dc425fa137d270c967e6a74f12103a7) — 2026-11-26
-- [Merge pull request #47076 from github/repo-sync](https://github.com/github/docs/commit/4f9adf7209026e370d17d20725211b961b1bca2b) — 2026-11-26
-- [Say where the status dropdown is in the new issue dialog (#64867)](https://github.com/github/docs/commit/9552a75b4fde89f657d21766aac5d4ad35aa576c) — 2026-11-26
-- [Copilot CLI: Update modes, agents, and delegation articles (#64873)](https://github.com/github/docs/commit/4ab3e721439daa57cdc9916eaf1d43c6af525f44) — 2026-11-26
-- [Merge pull request #47070 from github/repo-sync](https://github.com/github/docs/commit/8b038c5516187e33b1f81a905986639fa44e9ea9) — 2026-11-25
+- [Merge pull request #47099 from github/repo-sync](https://github.com/github/docs/commit/6dd875c27b0a1262bb71679e979059c80ff8de72) — 2026-11-27
+- [Add guidance on handling check runs created with GITHUB_TOKEN in troubleshooting status checks (#64576)](https://github.com/github/docs/commit/1e2b8ffbfec757f2e12bd917ca4cbf21268b18f1) — 2026-11-27
+- [Document issue status sync navigation and opt-in default (#64888)](https://github.com/github/docs/commit/6283cede41af70e40e581464231528664f193da9) — 2026-11-27
+- [Copilot CLI: providers.json supports apiKeyCommand (#64852)](https://github.com/github/docs/commit/d3e9c464313c886c255567b9287c8cf5edf2f5ec) — 2026-11-27
+- [Update Dreaming prerequisite guidance (#64864)](https://github.com/github/docs/commit/5c9427a07575d7dcfc3d3db3e94792f239beeafe) — 2026-11-27
 
 ### GitHub Changelog
 
